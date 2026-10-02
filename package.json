@@ -1,24 +1,105 @@
 {
   "name": "voice-coder",
+  "displayName": "Voice Coder",
   "version": "0.1.0",
   "private": true,
-  "description": "Voice-to-intent layer for a Japanese voice coding extension",
+  "description": "日本語の音声で generate / explain / debug を指示する VS Code 拡張",
+  "publisher": "tsekino",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "file:///D:/work/voice-coder"
+  },
   "type": "module",
   "engines": {
+    "vscode": "^1.100.0",
     "node": ">=20"
   },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.cjs",
+  "contributes": {
+    "commands": [
+      {
+        "command": "voiceCoder.toggleListening",
+        "title": "音声入力の開始/停止",
+        "category": "Voice Coder"
+      },
+      {
+        "command": "voiceCoder.applyProposal",
+        "title": "修正案を適用",
+        "category": "Voice Coder"
+      },
+      {
+        "command": "voiceCoder.discardProposal",
+        "title": "修正案を破棄",
+        "category": "Voice Coder"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "voiceCoder.toggleListening",
+        "key": "ctrl+alt+v",
+        "mac": "cmd+alt+v"
+      }
+    ],
+    "configuration": {
+      "title": "Voice Coder",
+      "properties": {
+        "voiceCoder.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "マイクのサイドカー (python/mic_sidecar.py) を動かす Python。PyAudio が入っていること。"
+        },
+        "voiceCoder.micDevice": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "default": null,
+          "description": "PyAudio の入力デバイス番号。null で既定のデバイス。"
+        },
+        "voiceCoder.model": {
+          "type": "string",
+          "default": "claude-opus-5-5",
+          "description": "Claude Agent SDK に渡すモデル。"
+        },
+        "voiceCoder.claudeCodePath": {
+          "type": "string",
+          "default": "",
+          "description": "Claude Code 実行ファイルのパス。空なら SDK 同梱のものを使う。"
+        },
+        "voiceCoder.maxEndpointDelayMs": {
+          "type": "number",
+          "default": 1000,
+          "description": "Soniox の max_endpoint_delay_ms。"
+        }
+      }
+    }
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "test": "vitest run",
+    "build": "tsc -p tsconfig.json && node esbuild.mjs",
+    "vscode:prepublish": "npm run build",
+    "test": "vitest run && node out/test/runTest.cjs",
+    "test:unit": "vitest run",
+    "test:vscode": "node out/test/runTest.cjs",
     "gen:audio": "tsx scripts/gen_audio.ts",
     "latency": "tsx scripts/latency_report.ts"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.288",
     "ws": "^8.22.0"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.10",
     "@types/node": "^20.19.43",
+    "@types/vscode": "^1.100.0",
     "@types/ws": "^8.18.2",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.28.2",
+    "mocha": "^12.0.3",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^3.2.7"

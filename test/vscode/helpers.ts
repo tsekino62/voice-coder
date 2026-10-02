@@ -1,0 +1,96 @@
+import * as vscode from "vscode";
+import type { AgentBackend } from "../../src/agent/AgentBackend.js";
+import { MockAgentBackend, type MockResponder } from "../../src/agent/MockAgentBackend.js";
+import type { ActionReport } from "../../src/extension/actions.js";
+import type { VoiceCoderApi } from "../../src/extension/extension.js";
+import { SttEvents, type FinalTranscript, type SttBackend, type Transcript } from "../../src/stt/SttBackend.js";
+
+export type Step = { partial: string; atMs: number } | { final: string; atMs: number };
+
+/** Plays transcript events on a timeline, the way a streaming STT would. */
+export class TimedScriptBackend implements SttBackend {
+  private readonly events = new SttEvents();
+  private timers: NodeJS.Timeout[] = [];
+  private finished!: Promise<void>;
+
+  constructor(private readonly script: Step[]) {}
+
+  onPartial(listener: (partial: Transcript) => void): void {
+    this.events.onPartial(listener);
+  }
+
+  onFinal(listener: (final: FinalTranscript) => void): void {
+    this.events.onFinal(listener);
+  }
+
+  async start(): Promise<void> {
+    const last = Math.max(0, ...this.script.map((s) => s.atMs));
+    this.finished = new Promise((resolve) => this.timers.push(setTimeout(resolve, last + 1)));
+    for (const step of this.script) {
+      this.timers.push(
+        setTimeout(() => {
+          if ("partial" in step) this.events.emitPartial({ text: step.partial, atMs: step.atMs });
+          else this.events.emitFinal({ text: step.final, atMs: step.atMs });
+        }, step.atMs),
+      );
+    }
+  }
+
+  /** Like a real backend, stop() returns once the last final is out. */
+  async stop(): Promise<void> {
+    await this.finished;
+    this.timers.forEach(clearTimeout);
+  }
+}
+
+export async function getApi(): Promise<VoiceCoderApi> {
+  const extension = vscode.extensions.getExtension<VoiceCoderApi>("tsekino.voice-coder");
+  if (!extension) throw new Error("extension tsekino.voice-coder not found");
+  return extension.activate();
+}
+
+/**
+ * The agent for a test: Claude when ANTHROPIC_API_KEY is set, otherwise a mock
+ * that streams `responder`'s canned reply.
+ */
+export function agentFor(responder?: MockResponder, chunkDelayMs = 10): { agent: AgentBackend | undefined; mock: MockAgentBackend | undefined } {
+  if (process.env.ANTHROPIC_API_KEY) return { agent: undefined, mock: undefined };
+  const mock = new MockAgentBackend(responder, 16, chunkDelayMs);
+  return { agent: mock, mock };
+}
+
+export const usingRealAgent = () => Boolean(process.env.ANTHROPIC_API_KEY);
+
+export async function openDocument(content: string, language = "typescript"): Promise<vscode.TextEditor> {
+  const document = await vscode.workspace.openTextDocument({ content, language });
+  return vscode.window.showTextDocument(document);
+}
+
+export function nextReport(api: VoiceCoderApi, timeoutMs = 50_000): Promise<ActionReport> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      listener.dispose();
+      reject(new Error("no action report"));
+    }, timeoutMs);
+    const listener = api.onActionDone((report) => {
+      clearTimeout(timer);
+      listener.dispose();
+      resolve(report);
+    });
+  });
+}
+
+/** Press push-to-talk, let the script play, release, and wait for the command to finish. */
+export async function speak(api: VoiceCoderApi, script: Step[]): Promise<ActionReport> {
+  api.setSttFactory(() => new TimedScriptBackend(script));
+  const report = nextReport(api);
+  await vscode.commands.executeCommand("voiceCoder.toggleListening");
+  await vscode.commands.executeCommand("voiceCoder.toggleListening");
+  return report;
+}
+
+export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export function numberedLines(count: number): string {
+  return Array.from({ length: count }, (_, i) => `const line${i + 1} = ${i + 1};`).join("\n") + "\n";
+}

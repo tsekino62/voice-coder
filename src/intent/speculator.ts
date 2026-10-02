@@ -5,6 +5,8 @@ import type { Intent } from "./types.js";
 /** One start of downstream work (e.g. an LLM call) for an intent. */
 export interface Dispatch {
   intent: Intent;
+  /** The transcript the intent was read from. */
+  text: string;
   /** Aborted when the intent turns out to be wrong. */
   signal: AbortSignal;
   /** Started from a partial transcript, before the utterance was final. */
@@ -55,13 +57,13 @@ export class IntentSpeculator {
     // A partial with no command word yet is not a reason to drop work already started
     if (!intent || (this.current && sameIntent(this.current.intent, intent))) return;
     this.abortCurrent();
-    this.dispatch(intent, atMs, true);
+    this.dispatch(intent, text, atMs, true);
   }
 
   private final(text: string, atMs: number, intent: Intent | null): void {
     if (!this.current || !sameIntent(this.current.intent, intent)) {
       this.abortCurrent();
-      if (intent) this.dispatch(intent, atMs, false);
+      if (intent) this.dispatch(intent, text, atMs, false);
     }
     const resolution: Resolution = { text, intent, dispatch: this.current, finalAtMs: atMs, aborted: this.aborted };
     this.current = this.controller = null;
@@ -69,9 +71,9 @@ export class IntentSpeculator {
     this.handlers.onResolved?.(resolution);
   }
 
-  private dispatch(intent: Intent, atMs: number, speculative: boolean): void {
+  private dispatch(intent: Intent, text: string, atMs: number, speculative: boolean): void {
     this.controller = new AbortController();
-    this.current = { intent, signal: this.controller.signal, speculative, atMs };
+    this.current = { intent, text, signal: this.controller.signal, speculative, atMs };
     this.handlers.onIntent(this.current);
   }
 

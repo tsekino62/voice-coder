@@ -1,0 +1,11 @@
+# Ship only the bundle, the mic sidecar and the Agent SDK's self-contained ESM entry.
+# The SDK's 238 MB platform binary is left out: see voiceCoder.claudeCodePath in README.md.
+**
+!package.json
+!README.md
+!LICENSE
+!dist/extension.cjs
+!python/mic_sidecar.py
+!node_modules/@anthropic-ai/claude-agent-sdk/package.json
+!node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
+!node_modules/@anthropic-ai/claude-agent-sdk/LICENSE.md

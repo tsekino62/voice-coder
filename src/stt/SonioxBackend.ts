@@ -90,9 +90,19 @@ export class SonioxBackend implements SttBackend {
     this.sending = this.send(ws);
   }
 
-  async stop(): Promise<void> {
+  /**
+   * Stops the audio and waits for Soniox to finish the utterance in flight
+   * (push-to-talk: the final arrives after the key is released).
+   */
+  async stop(finishTimeoutMs = 5000): Promise<void> {
     this.abort.abort();
     await this.sending;
+    if (this.closed) {
+      let timer: NodeJS.Timeout | undefined;
+      const timeout = new Promise<void>((resolve) => (timer = setTimeout(resolve, finishTimeoutMs)));
+      await Promise.race([this.closed, timeout]);
+      clearTimeout(timer);
+    }
     if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.close();
     await this.closed;
   }

@@ -67,6 +67,24 @@ describe("SonioxBackend protocol", () => {
     expect(backend.error).toBeUndefined();
   });
 
+  it("stop() ends the audio and still delivers the final (push-to-talk)", async () => {
+    const { url } = await fakeSoniox([
+      { tokens: [{ text: "デバッグして", is_final: true }] },
+      { tokens: [], finished: true },
+    ]);
+    const path = join(mkdtempSync(join(tmpdir(), "vc-")), "long.wav");
+    writeFileSync(path, encodeWav(Buffer.alloc(SAMPLE_RATE * 10 * 2)));
+    const backend = new SonioxBackend(new WavFileSource(path, 0), { apiKey: "k", url });
+    const finals: string[] = [];
+    backend.onFinal((f) => finals.push(f.text));
+    await backend.start();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const started = performance.now();
+    await backend.stop();
+    expect(performance.now() - started).toBeLessThan(2000);
+    expect(finals).toEqual(["デバッグして"]);
+  });
+
   it("reports a Soniox error without the API key in it", async () => {
     const { url } = await fakeSoniox([{ error_code: 401, error_message: "bad key secret-key" }]);
     const backend = new SonioxBackend(shortWav(), { apiKey: "secret-key", url });

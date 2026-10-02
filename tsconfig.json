@@ -8,10 +8,7 @@
     "strict": true,
     "noUnusedLocals": true,
     "skipLibCheck": true,
-    "rootDir": ".",
-    "outDir": "dist",
-    "declaration": true,
-    "sourceMap": true
+    "noEmit": true
   },
   "include": ["src", "scripts", "test"]
 }
