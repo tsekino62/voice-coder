@@ -77,7 +77,7 @@ export function parseLineRange(normalized: string): LineRange | null {
 }
 
 /** Identifiers: runs of latin letters/digits, spaces closed up (Fizz Buzz → fizzbuzz). */
-function parseTerms(normalized: string): string[] {
+export function parseTerms(normalized: string): string[] {
   const runs = normalized.match(/[a-z][a-z0-9_]*(?:\s+[a-z0-9_]+)*/g) ?? [];
   return [...new Set(runs.map((run) => run.replace(/\s+/g, "")))].sort();
 }

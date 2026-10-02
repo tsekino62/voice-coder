@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { IntentSpeculator } from "../intent/speculator.js";
+import { IntentSpeculator, type IntentReader } from "../intent/speculator.js";
 import type { SttBackend } from "../stt/SttBackend.js";
 import type { ActionRunner } from "./actions.js";
 import type { StatusView } from "./status.js";
@@ -18,6 +18,8 @@ export class VoiceController implements vscode.Disposable {
     private readonly createStt: () => SttBackend,
     private readonly actions: ActionRunner,
     private readonly status: StatusView,
+    /** How commands are read from transcripts; asked again on every start. */
+    private readonly reader: () => IntentReader,
   ) {}
 
   get listening(): boolean {
@@ -40,10 +42,14 @@ export class VoiceController implements vscode.Disposable {
     }
     this.stt = stt;
     this.lastText = "";
-    new IntentSpeculator(stt, {
-      onIntent: (dispatch) => this.actions.begin(dispatch),
-      onResolved: (resolution) => void this.actions.resolve(resolution),
-    });
+    new IntentSpeculator(
+      stt,
+      {
+        onIntent: (dispatch) => this.actions.begin(dispatch),
+        onResolved: (resolution) => void this.actions.resolve(resolution),
+      },
+      this.reader(),
+    );
     stt.onPartial(({ text }) => {
       this.lastText = text;
       this.status.partial(text);

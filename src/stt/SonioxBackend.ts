@@ -41,6 +41,8 @@ export class SonioxBackend implements SttBackend {
   private finalText = "";
   private lastPartial = "";
   private sending?: Promise<void>;
+  /** Finals emitted so far. */
+  finalCount = 0;
   private closed?: Promise<void>;
   error?: Error;
 
@@ -146,7 +148,10 @@ export class SonioxBackend implements SttBackend {
     if (ended || (response.finished && this.finalText.trim())) {
       const text = this.finalText.trim();
       this.finalText = this.lastPartial = "";
-      if (text) this.events.emitFinal({ text, atMs });
+      if (text) {
+        this.finalCount++;
+        this.events.emitFinal({ text, atMs });
+      }
     }
     if (response.finished) this.ws?.close();
   }

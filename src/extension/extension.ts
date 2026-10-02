@@ -4,6 +4,9 @@ import { ClaudeAgentBackend } from "../agent/ClaudeAgentBackend.js";
 import { findClaudeExecutable } from "../agent/claudeExecutable.js";
 import { DEFAULT_OPENAI_MODEL, OpenAIAgentBackend } from "../agent/OpenAIAgentBackend.js";
 import { SidecarAudioSource } from "../audio/sidecar.js";
+import { JevIntentReader } from "../intent/jev.js";
+import { parseIntent } from "../intent/parser.js";
+import type { IntentReader } from "../intent/speculator.js";
 import { SonioxBackend } from "../stt/SonioxBackend.js";
 import type { SttBackend } from "../stt/SttBackend.js";
 import { ActionRunner, type ActionReport, type Proposal } from "./actions.js";
@@ -30,6 +33,7 @@ function config() {
     model: c.get<string>("model") || "",
     claudeCodePath: c.get<string>("claudeCodePath") || "",
     maxEndpointDelayMs: c.get<number>("maxEndpointDelayMs") ?? 1000,
+    intentReader: c.get<"regex" | "jev">("intentReader") ?? "regex",
   };
 }
 
@@ -69,7 +73,17 @@ export function activate(context: vscode.ExtensionContext): VoiceCoderApi {
     else if (state === "done") status.done(label);
     else status.error(label);
   });
-  const controller = new VoiceController(() => (sttFactory ?? defaultStt)(), actions, status);
+  let jev: JevIntentReader | undefined;
+  const reader = (): IntentReader => {
+    if (config().intentReader !== "jev") return parseIntent;
+    if (!process.env.TYPESAFE_API_KEY) {
+      void vscode.window.showWarningMessage("Voice Coder: TYPESAFE_API_KEY が無いので jev を使わず正規表現で意図を読みます");
+      return parseIntent;
+    }
+    jev ??= new JevIntentReader();
+    return jev.read;
+  };
+  const controller = new VoiceController(() => (sttFactory ?? defaultStt)(), actions, status, reader);
 
   context.subscriptions.push(
     status,

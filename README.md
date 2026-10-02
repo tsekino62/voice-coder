@@ -27,6 +27,7 @@ VS Code は起動したときの環境変数を引き継ぐ。設定してから
 | `SONIOX_API_KEY` | 音声認識（Soniox `stt-rt-v5`） | はい |
 | `OPENAI_API_KEY` | 既定の LLM（OpenAI Responses API、`voiceCoder.agent` が `openai` のとき） | はい（既定） |
 | `ANTHROPIC_API_KEY` | `voiceCoder.agent` を `claude` にしたとき（Claude Agent SDK） | `claude` のとき |
+| `TYPESAFE_API_KEY` | `voiceCoder.intentReader` を `jev` にしたとき（意図の読み取りを jev で行う） | `jev` のとき |
 | `ELEVENLABS_API_KEY` | テスト音声の再生成（`npm run gen:audio`）だけで使う | いいえ |
 
 Windows で恒久的に設定する例:
@@ -65,6 +66,7 @@ VS Code の設定:
 | `voiceCoder.agent` | `openai` | コマンドを実行する LLM。`openai` か `claude` |
 | `voiceCoder.model` | 空 | モデル名。空なら `openai` は `gpt-6.1-sol`、`claude` は `claude-opus-5-5` |
 | `voiceCoder.claudeCodePath` | 空 | `claude` のときの Claude Code 実行ファイル。空なら SDK 同梱のもの、なければ PATH 上の `claude` |
+| `voiceCoder.intentReader` | `regex` | 発話から generate / explain / debug を読む方法。`regex`（キーワード、待ちなし）か `jev`（typesafe.ai、1 回 0.2 秒ほど）。比較は `docs/JEV.md` |
 | `voiceCoder.maxEndpointDelayMs` | `1000` | Soniox の発話終了判定の上限 |
 
 `.vsix` には SDK 同梱の Claude Code 実行ファイル（Windows で 238 MB）を入れていない。
@@ -101,7 +103,8 @@ npx vsce package
   キーが無いか `VOICE_CODER_MOCK_AGENT=1` のときは `AgentBackend` をモック（`src/agent/MockAgentBackend.ts`）に差し替える。
   音声認識はどちらの場合も、タイミングを決めて partial / final を流すスクリプトに差し替える。
 - `SONIOX_API_KEY` があると `test/audio/` の 15 本を実時間で Soniox に流す統合テストも走る（無ければ skip）。
-  `npm run latency` で `docs/LATENCY.md` を計測し直す。
+  `npm run latency` で `docs/LATENCY.md` を計測し直す。`TYPESAFE_API_KEY` もあると、同じ音声で jev による意図の読み取りも確かめる。
+- `npm run jev:compare` は jev on / off の速さを同じ音声ストリームで比べ、`docs/JEV.md` に書く。
 - `test/audio/` の WAV はコミット済み。作り直すのは `npm run gen:audio -- --force` を明示的に実行したときだけ。
 
 ## 構成
@@ -110,7 +113,7 @@ npx vsce package
 |---|---|
 | `src/stt/` | `SttBackend`（start / onPartial / onFinal / stop）と Soniox 実装 |
 | `src/audio/` | WAV、実時間再生、Python サイドカーからの音声 |
-| `src/intent/` | 意図パーサ（generate / explain / debug、行範囲）と先読み制御 |
+| `src/intent/` | 意図パーサ（generate / explain / debug、行範囲）、jev による読み取り、先読み制御 |
 | `src/agent/` | `AgentBackend`、OpenAI（Responses API）と Claude Agent SDK の実装、モック、プロンプト |
 | `src/extension/` | VS Code 拡張（ステータスバー、push-to-talk、各アクション） |
 | `python/mic_sidecar.py` | マイクのサイドカー |

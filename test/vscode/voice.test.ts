@@ -144,6 +144,27 @@ describe("Voice Coder in VS Code", () => {
     }
   });
 
+  it("reads intents with jev when voiceCoder.intentReader is jev", async () => {
+    // With TYPESAFE_API_KEY the real jev answers; without it the extension falls back to the regex
+    const settings = vscode.workspace.getConfiguration("voiceCoder");
+    await settings.update("intentReader", "jev", vscode.ConfigurationTarget.Global);
+    try {
+      const { agent } = agentFor();
+      api.setAgentBackend(agent);
+      const editor = await openDocument(numberedLines(30));
+      const before = editor.document.getText();
+      const report = await speak(api, [
+        { partial: "10行目から20行目", atMs: 100 },
+        { partial: "10行目から20行目で何をしているか", atMs: 400 },
+        { final: "10行目から20行目で何をしているか教えて。", atMs: 900 },
+      ]);
+      assert.equal(report.kind, "explain");
+      assert.equal(editor.document.getText(), before);
+    } finally {
+      await settings.update("intentReader", undefined, vscode.ConfigurationTarget.Global);
+    }
+  });
+
   describe("speculative run aborted by a mismatching final", () => {
     for (const [name, chunkDelayMs] of [
       ["while the agent is still streaming", 100],
