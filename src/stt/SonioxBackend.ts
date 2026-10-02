@@ -51,6 +51,11 @@ export class SonioxBackend implements SttBackend {
     private readonly options: SonioxOptions,
   ) {}
 
+  /** performance.now() when audio started going out: the zero of every event's atMs. */
+  get startedAt(): number {
+    return this.t0;
+  }
+
   onPartial(listener: (partial: Transcript) => void): void {
     this.events.onPartial(listener);
   }

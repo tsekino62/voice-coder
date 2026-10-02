@@ -72,7 +72,22 @@ VS Code の設定:
 `.vsix` には SDK 同梱の Claude Code 実行ファイル（Windows で 238 MB）を入れていない。
 `claude` を使うときは、Claude Code をインストールして PATH に通すか `voiceCoder.claudeCodePath` を設定する。
 
-### 3. キーバインド
+### 3. マイクを試す（VS Code なし）
+
+拡張に入れる前に、ターミナルでマイク → Soniox → 意図 → LLM の流れを確かめられる。
+Enter で話し始め、話し終えたら Enter で止める（push-to-talk と同じ）。q + Enter で終了。
+
+```bash
+npm run mic -- --python D:\work\stt_probe\.venv\Scripts\python.exe
+```
+
+- 画面に partial、先読みの発火、final、採用された意図、LLM の応答が順に出て、止めたあとに
+  「発話終了から 意図発火 / final / 意図確定 / LLM 最初の文字」の時間が出る（発話終了は録音の音量から推定）。
+- 対象コードは内蔵の 23 行のサンプル（14 行目に型エラー）。`--file path` で実ファイルにできる（generate は応答を表示するだけで書き込まない）。
+- `--device N`（`--list-devices` で番号を確認）、`--reader regex|jev|hybrid`、`--agent openai|claude|off`、`--model`、
+  `--save dir`（録音を WAV で保存）、`--wav file`（マイクの代わりに WAV を流す）。
+
+### 4. キーバインド
 
 | キー | コマンド |
 |---|---|
