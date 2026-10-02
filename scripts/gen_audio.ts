@@ -3,7 +3,7 @@
  * The WAVs are committed; run this only to regenerate them:
  *
  *   npm run gen:audio            # files that do not exist yet
- *   npm run gen:audio -- --force # all 15 (spends ElevenLabs credits)
+ *   npm run gen:audio -- --force # all of them (spends ElevenLabs credits)
  *   npm run gen:audio -- --dry-run
  *
  * Reads ELEVENLABS_API_KEY from the environment.
@@ -12,7 +12,7 @@ import "./loadEnv.js";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { encodeWav, SAMPLE_RATE } from "../src/audio/wav.js";
-import { TAKES } from "../src/eval/takes.js";
+import { ALL_TAKES as TAKES } from "../src/eval/takes.js";
 
 const OUT_DIR = join(import.meta.dirname, "..", "test", "audio");
 const MODEL_ID = "eleven_v4";

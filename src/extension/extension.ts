@@ -4,6 +4,7 @@ import { ClaudeAgentBackend } from "../agent/ClaudeAgentBackend.js";
 import { findClaudeExecutable } from "../agent/claudeExecutable.js";
 import { DEFAULT_OPENAI_MODEL, OpenAIAgentBackend } from "../agent/OpenAIAgentBackend.js";
 import { SidecarAudioSource } from "../audio/sidecar.js";
+import { hybridReader } from "../intent/hybrid.js";
 import { JevIntentReader } from "../intent/jev.js";
 import { parseIntent } from "../intent/parser.js";
 import type { IntentReader } from "../intent/speculator.js";
@@ -33,7 +34,7 @@ function config() {
     model: c.get<string>("model") || "",
     claudeCodePath: c.get<string>("claudeCodePath") || "",
     maxEndpointDelayMs: c.get<number>("maxEndpointDelayMs") ?? 1000,
-    intentReader: c.get<"regex" | "jev">("intentReader") ?? "regex",
+    intentReader: c.get<"regex" | "jev" | "hybrid">("intentReader") ?? "hybrid",
   };
 }
 
@@ -75,13 +76,15 @@ export function activate(context: vscode.ExtensionContext): VoiceCoderApi {
   });
   let jev: JevIntentReader | undefined;
   const reader = (): IntentReader => {
-    if (config().intentReader !== "jev") return parseIntent;
+    const mode = config().intentReader;
+    if (mode === "regex") return parseIntent;
     if (!process.env.TYPESAFE_API_KEY) {
-      void vscode.window.showWarningMessage("Voice Coder: TYPESAFE_API_KEY が無いので jev を使わず正規表現で意図を読みます");
+      // hybrid quietly degrades to keywords; an explicit jev choice deserves a word
+      if (mode === "jev") void vscode.window.showWarningMessage("Voice Coder: TYPESAFE_API_KEY が無いので jev を使わず正規表現で意図を読みます");
       return parseIntent;
     }
     jev ??= new JevIntentReader();
-    return jev.read;
+    return mode === "jev" ? jev.read : hybridReader(jev.read);
   };
   const controller = new VoiceController(() => (sttFactory ?? defaultStt)(), actions, status, reader);
 

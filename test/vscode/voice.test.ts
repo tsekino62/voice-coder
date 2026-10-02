@@ -165,6 +165,22 @@ describe("Voice Coder in VS Code", () => {
     }
   });
 
+  it("hybrid (the default) reads a phrasing without keywords through jev", async function () {
+    if (!process.env.TYPESAFE_API_KEY) this.skip();
+    const { agent } = agentFor();
+    api.setAgentBackend(agent);
+    const editor = await openDocument(numberedLines(10));
+    const before = editor.document.getText();
+    const report = await speak(api, [
+      { partial: "テストが", atMs: 100 },
+      { partial: "テストが通らない", atMs: 400 },
+      { final: "テストが通らないんだけど。", atMs: 900 },
+    ]);
+    assert.equal(report.kind, "debug");
+    // debug never writes before approval
+    assert.equal(editor.document.getText(), before);
+  });
+
   describe("speculative run aborted by a mismatching final", () => {
     for (const [name, chunkDelayMs] of [
       ["while the agent is still streaming", 100],

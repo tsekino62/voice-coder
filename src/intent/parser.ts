@@ -57,9 +57,11 @@ export function normalizeText(text: string): string {
 const SEP = String.raw`\s*(?:から|[-~〜ー―])\s*`;
 const LINE = String.raw`\s*行目?`;
 // 10行目から20行目 / 10-20行目 / 10から20行目 / 10行目から20(まで)
+// / 10秒目から20行目 (the first counter misheard, the second still says 行目)
 const RANGE_PATTERNS = [
   new RegExp(String.raw`(\d+)(?:${LINE})?${SEP}(\d+)${LINE}`),
   new RegExp(String.raw`(\d+)${LINE}${SEP}(\d+)`),
+  new RegExp(String.raw`(\d+)\s*[^\d\s]目${SEP}(\d+)${LINE}`),
 ];
 const SINGLE_LINE = /(\d+)\s*行目/;
 

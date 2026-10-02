@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { JevIntentReader } from "../../src/intent/jev.js";
-import { TAKES } from "../../src/eval/takes.js";
+import { ALL_TAKES } from "../../src/eval/takes.js";
 
 /** A fetch that answers /v1/systemone with the given choice and probabilities. */
 function jevFetch(choice: string, probabilities: Record<string, number>) {
@@ -41,12 +41,12 @@ describe("JevIntentReader", () => {
   });
 });
 
-// About 15 short requests, a fraction of a cent; runs only with a key
+// About 30 short requests, a fraction of a cent; runs only with a key
 describe.skipIf(!process.env.TYPESAFE_API_KEY)("JevIntentReader against the real API", () => {
-  it("reads the intent of all 15 take texts", async () => {
+  it("reads the intent of all 30 take texts, with and without keywords", async () => {
     const reader = new JevIntentReader();
     const wrong: string[] = [];
-    for (const take of TAKES) {
+    for (const take of ALL_TAKES) {
       const intent = await reader.read(take.text);
       if (intent?.kind !== take.kind || (take.range && intent?.range?.from !== take.range.from)) wrong.push(`${take.text} → ${intent?.kind}`);
     }

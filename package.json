@@ -91,15 +91,17 @@
         "voiceCoder.intentReader": {
           "type": "string",
           "enum": [
+            "hybrid",
             "regex",
             "jev"
           ],
-          "default": "regex",
+          "default": "hybrid",
           "enumDescriptions": [
-            "正規表現（キーワード）。待ち時間なし",
-            "jev（typesafe.ai、TYPESAFE_API_KEY）。言い回しに強いが 1 回 0.2 秒ほどかかる"
+            "キーワードで読めればそのまま、読めないときだけ jev（TYPESAFE_API_KEY が無ければ正規表現のみ）",
+            "正規表現（キーワード）のみ。待ち時間なし",
+            "すべて jev（typesafe.ai）。1 回 0.2 秒ほど"
           ],
-          "description": "発話から generate / explain / debug を読む方法。行範囲はどちらでも正規表現で読む。"
+          "description": "発話から generate / explain / debug を読む方法。行範囲はどれでも正規表現で読む。比較は docs/JEV.md。"
         }
       }
     }

@@ -5,7 +5,9 @@ import type { Intent, IntentKind } from "./types.js";
 const KIND_CRITERIA = {
   generate: "The speaker asks to write, create, implement or generate new code.",
   explain: "The speaker asks to explain or describe what existing code does.",
-  debug: "The speaker asks to find or fix a bug or an error, or to debug.",
+  debug:
+    "The speaker asks to find or fix a bug or an error, or reports that the code misbehaves " +
+    "(tests fail, wrong values, exceptions, crashes, hangs, unexpected results). Reporting such a problem is a request to debug it.",
   none: "No complete request yet: filler words, an unfinished sentence, or something else.",
 } as const;
 

@@ -113,6 +113,11 @@ describe("normalization", () => {
     expect(normalizeText("従業員の一覧")).toBe("従業員の一覧");
   });
 
+  it("reads a misheard counter on the first line when the second says 行目 (Soniox: 10秒目 for 十行目)", () => {
+    expect(parseLineRange(normalizeText("10秒目から20行目、これ何してるんだっけ"))).toEqual({ from: 10, to: 20 });
+    expect(parseLineRange(normalizeText("10秒目から20秒目"))).toBeNull();
+  });
+
   it("closes up a split identifier", () => {
     expect(parseIntent("Fizz Buzzを作って")?.terms).toEqual(["fizzbuzz"]);
   });

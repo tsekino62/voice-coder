@@ -2,7 +2,8 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { mapLimit, runTakeModes, type TakeResult } from "../../src/eval/runTake.js";
-import { TAKES } from "../../src/eval/takes.js";
+import { PARAPHRASE_TAKES, TAKES } from "../../src/eval/takes.js";
+import { hybridReader } from "../../src/intent/hybrid.js";
 import { JevIntentReader } from "../../src/intent/jev.js";
 import { parseIntent } from "../../src/intent/parser.js";
 
@@ -41,3 +42,23 @@ describe.skipIf(!apiKey || !audioReady)("Soniox, 15 synthesized takes at real-ti
     for (const { take, result } of withRange) expect(result.intent?.range, `${take.file}: ${result.text}`).toEqual(take.range);
   });
 });
+
+describe.skipIf(!apiKey || !process.env.TYPESAFE_API_KEY || !PARAPHRASE_TAKES.every((t) => existsSync(audioPath(t.file))))(
+  "Soniox, 15 takes without keywords, hybrid reader",
+  () => {
+    it("reads every intent and every line range that keywords alone miss", async () => {
+      const jev = new JevIntentReader();
+      const results = await mapLimit(PARAPHRASE_TAKES, 3, (take) =>
+        runTakeModes(audioPath(take.file), take.file, { apiKey: apiKey!, maxEndpointDelayMs: 1000 }, { regex: parseIntent, hybrid: hybridReader(jev.read) }),
+      );
+      expect(results.filter((r, i) => r.regex.intent?.kind === PARAPHRASE_TAKES[i].kind)).toHaveLength(0);
+      const wrong = results
+        .filter((r, i) => {
+          const take = PARAPHRASE_TAKES[i];
+          return r.hybrid.intent?.kind !== take.kind || (take.range && r.hybrid.intent?.range?.from !== take.range.from);
+        })
+        .map((r) => `${r.hybrid.file}: ${r.hybrid.text} → ${r.hybrid.intent?.kind}`);
+      expect(wrong).toEqual([]);
+    }, 120_000);
+  },
+);

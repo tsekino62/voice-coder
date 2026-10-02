@@ -123,5 +123,130 @@
     "kind": "debug",
     "voice": "Ren - Calm & Clear",
     "model": "eleven_v4"
+  },
+  {
+    "file": "para_generate_1.wav",
+    "text": "FizzBuzzがほしい",
+    "kind": "generate",
+    "voice": "Kagami - Storyteller & Broadcaster",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "para_generate_2.wav",
+    "text": "FizzBuzzを用意して",
+    "kind": "generate",
+    "voice": "Ren - Calm & Clear",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "para_generate_3.wav",
+    "text": "ここにFizzBuzzをお願い",
+    "kind": "generate",
+    "voice": "Kagami - Storyteller & Broadcaster",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "para_generate_4.wav",
+    "text": "FizzBuzzを足しといて",
+    "kind": "generate",
+    "voice": "Ren - Calm & Clear",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "para_generate_5.wav",
+    "text": "FizzBuzzのコード、ちょうだい",
+    "kind": "generate",
+    "voice": "Kagami - Storyteller & Broadcaster",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "para_explain_1.wav",
+    "text": "10行目から20行目って何やってるの",
+    "kind": "explain",
+    "range": {
+      "from": 10,
+      "to": 20
+    },
+    "voice": "Ren - Calm & Clear",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "para_explain_2.wav",
+    "text": "10行目から20行目の意味がわからない",
+    "kind": "explain",
+    "range": {
+      "from": 10,
+      "to": 20
+    },
+    "voice": "Kagami - Storyteller & Broadcaster",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "para_explain_3.wav",
+    "text": "10行目から20行目を噛み砕いて",
+    "kind": "explain",
+    "range": {
+      "from": 10,
+      "to": 20
+    },
+    "voice": "Ren - Calm & Clear",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "para_explain_4.wav",
+    "text": "10行目から20行目の処理の流れを知りたい",
+    "kind": "explain",
+    "range": {
+      "from": 10,
+      "to": 20
+    },
+    "voice": "Kagami - Storyteller & Broadcaster",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "para_explain_5.wav",
+    "text": "10行目から20行目、これ何してるんだっけ",
+    "kind": "explain",
+    "range": {
+      "from": 10,
+      "to": 20
+    },
+    "voice": "Ren - Calm & Clear",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "para_debug_1.wav",
+    "text": "テストが通らないんだけど",
+    "kind": "debug",
+    "voice": "Kagami - Storyteller & Broadcaster",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "para_debug_2.wav",
+    "text": "なんか変な値が返ってくる",
+    "kind": "debug",
+    "voice": "Ren - Calm & Clear",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "para_debug_3.wav",
+    "text": "例外が出て止まっちゃう",
+    "kind": "debug",
+    "voice": "Kagami - Storyteller & Broadcaster",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "para_debug_4.wav",
+    "text": "実行すると固まる",
+    "kind": "debug",
+    "voice": "Ren - Calm & Clear",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "para_debug_5.wav",
+    "text": "期待した結果にならない、見てくれる？",
+    "kind": "debug",
+    "voice": "Kagami - Storyteller & Broadcaster",
+    "model": "eleven_v4"
   }
 ]
