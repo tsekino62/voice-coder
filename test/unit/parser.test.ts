@@ -107,6 +107,12 @@ describe("normalization", () => {
     expect(normalizeText("一緒に十行目")).toBe("一緒に10行目");
   });
 
+  it("reads STT homophones of 十行目 (heard from Soniox on explain_4.wav)", () => {
+    expect(parseIntent("従業目から20行目のコードを説明してください。")?.range).toEqual({ from: 10, to: 20 });
+    expect(parseIntent("重行目から二十業目を解説して")?.range).toEqual({ from: 10, to: 20 });
+    expect(normalizeText("従業員の一覧")).toBe("従業員の一覧");
+  });
+
   it("closes up a split identifier", () => {
     expect(parseIntent("Fizz Buzzを作って")?.terms).toEqual(["fizzbuzz"]);
   });

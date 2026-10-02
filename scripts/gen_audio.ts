@@ -8,6 +8,7 @@
  *
  * Reads ELEVENLABS_API_KEY from the environment.
  */
+import "./loadEnv.js";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { encodeWav, SAMPLE_RATE } from "../src/audio/wav.js";

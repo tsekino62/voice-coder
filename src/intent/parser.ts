@@ -48,6 +48,9 @@ export function normalizeText(text: string): string {
   return text
     .normalize("NFKC")
     .toLowerCase()
+    // STT homophones of 行目 and of じゅう before it: 従業目 (じゅうぎょうめ) is 十行目
+    .replace(/([\d〇零一二三四五六七八九十百千従重住充])業目/g, "$1行目")
+    .replace(/[従重住充](?=行目)/g, "十")
     .replace(/[〇零一二三四五六七八九十百千]+(?=\s*(?:行|から|まで|[-~〜]))/g, (kanji) => String(kanjiToNumber(kanji) ?? kanji));
 }
 

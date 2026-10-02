@@ -4,6 +4,7 @@
  *
  *   npm run latency
  */
+import "./loadEnv.js";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { mapLimit, runTake, type TakeResult } from "../src/eval/runTake.js";

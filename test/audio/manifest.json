@@ -1,0 +1,127 @@
+[
+  {
+    "file": "generate_1.wav",
+    "text": "FizzBuzzを作って",
+    "kind": "generate",
+    "voice": "Ren - Calm & Clear",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "generate_2.wav",
+    "text": "FizzBuzzを書いて",
+    "kind": "generate",
+    "voice": "Kagami - Storyteller & Broadcaster",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "generate_3.wav",
+    "text": "FizzBuzzを実装してください",
+    "kind": "generate",
+    "voice": "Ren - Calm & Clear",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "generate_4.wav",
+    "text": "FizzBuzzのコードを生成して",
+    "kind": "generate",
+    "voice": "Kagami - Storyteller & Broadcaster",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "generate_5.wav",
+    "text": "作って、FizzBuzz",
+    "kind": "generate",
+    "voice": "Ren - Calm & Clear",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "explain_1.wav",
+    "text": "10行目から20行目を解説して",
+    "kind": "explain",
+    "range": {
+      "from": 10,
+      "to": 20
+    },
+    "voice": "Kagami - Storyteller & Broadcaster",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "explain_2.wav",
+    "text": "10から20行目を説明して",
+    "kind": "explain",
+    "range": {
+      "from": 10,
+      "to": 20
+    },
+    "voice": "Ren - Calm & Clear",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "explain_3.wav",
+    "text": "十行目から二十行目までを解説して",
+    "kind": "explain",
+    "range": {
+      "from": 10,
+      "to": 20
+    },
+    "voice": "Kagami - Storyteller & Broadcaster",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "explain_4.wav",
+    "text": "10行目から20行目のコードを説明してください",
+    "kind": "explain",
+    "range": {
+      "from": 10,
+      "to": 20
+    },
+    "voice": "Ren - Calm & Clear",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "explain_5.wav",
+    "text": "10行目から20行目で何をしているか教えて",
+    "kind": "explain",
+    "range": {
+      "from": 10,
+      "to": 20
+    },
+    "voice": "Kagami - Storyteller & Broadcaster",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "debug_1.wav",
+    "text": "デバッグして",
+    "kind": "debug",
+    "voice": "Ren - Calm & Clear",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "debug_2.wav",
+    "text": "これをデバッグして",
+    "kind": "debug",
+    "voice": "Kagami - Storyteller & Broadcaster",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "debug_3.wav",
+    "text": "デバッグをお願いします",
+    "kind": "debug",
+    "voice": "Ren - Calm & Clear",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "debug_4.wav",
+    "text": "このバグを直して",
+    "kind": "debug",
+    "voice": "Kagami - Storyteller & Broadcaster",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "debug_5.wav",
+    "text": "エラーの原因を調べて",
+    "kind": "debug",
+    "voice": "Ren - Calm & Clear",
+    "model": "eleven_v4"
+  }
+]
