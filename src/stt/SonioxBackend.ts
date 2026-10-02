@@ -64,6 +64,10 @@ export class SonioxBackend implements SttBackend {
     this.events.onFinal(listener);
   }
 
+  onError(listener: (error: Error) => void): void {
+    this.events.onError(listener);
+  }
+
   /** Resolves when Soniox has sent `finished` (all audio processed) or the socket closed. */
   get done(): Promise<void> {
     return this.closed ?? Promise.resolve();
@@ -164,7 +168,10 @@ export class SonioxBackend implements SttBackend {
   private fail(error: Error): void {
     // The API key travels in the first frame only, but never let it reach a log
     const message = error.message.split(this.options.apiKey).join("***");
-    this.error ??= new Error(message);
+    if (!this.error) {
+      this.error = new Error(message);
+      this.events.emitError(this.error);
+    }
     this.abort.abort();
     this.ws?.close();
   }

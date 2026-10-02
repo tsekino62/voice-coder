@@ -3,7 +3,7 @@ import * as vscode from "vscode";
 import { loadSdk } from "../../src/agent/ClaudeAgentBackend.js";
 import { PROPOSAL_SCHEME } from "../../src/extension/actions.js";
 import type { VoiceCoderApi } from "../../src/extension/extension.js";
-import { agentFor, getApi, numberedLines, openDocument, sleep, speak, usingRealAgent } from "./helpers.js";
+import { agentFor, getApi, settle, numberedLines, openDocument, sleep, speak, usingRealAgent } from "./helpers.js";
 
 describe("Voice Coder in VS Code", () => {
   let api: VoiceCoderApi;
@@ -13,6 +13,7 @@ describe("Voice Coder in VS Code", () => {
   });
 
   afterEach(async () => {
+    await settle(api);
     api.setSttFactory(undefined);
     api.setAgentBackend(undefined);
     await vscode.commands.executeCommand("workbench.action.closeAllEditors");

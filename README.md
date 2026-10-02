@@ -43,7 +43,9 @@ setx SONIOX_API_KEY "..."
 setx OPENAI_API_KEY "..."
 ```
 
-開発時はリポジトリ直下の `.env`（git 管理外）にも書ける。`.env` を読むのはテストとスクリプトだけで、拡張本体は読まない。
+環境変数の代わりに `.env` に書いて、設定 `voiceCoder.envFile` でそのパスを指定してもよい（例: `D:\work\voice-coder\.env`）。
+環境変数があればそちらが優先。`.env` の値はこの拡張の中だけで使い、VS Code の環境変数（他の拡張と共有）には入れない。
+テストとスクリプトはリポジトリ直下の `.env`（git 管理外）を自動で読む。
 
 ### 2. Python サイドカー（マイク）
 
@@ -73,6 +75,8 @@ VS Code の設定:
 | `voiceCoder.model` | 空 | モデル名。空なら `openai` は `gpt-6.1-sol`、`claude` は `claude-opus-5-5` |
 | `voiceCoder.claudeCodePath` | 空 | `claude` のときの Claude Code 実行ファイル。空なら SDK 同梱のもの、なければ PATH 上の `claude` |
 | `voiceCoder.intentReader` | `hybrid` | 発話から generate / explain / debug を読む方法。`hybrid`（キーワードで読めなければ jev）、`regex`（キーワードのみ）、`jev`（すべて jev）。比較は `docs/JEV.md` |
+| `voiceCoder.envFile` | 空 | API キーを書いた `.env` のパス |
+| `voiceCoder.replayWav` | 空 | 動作確認用: マイクの代わりにこの WAV を流す（例: `D:\work\voice-coder\test\audio\explain_1.wav`） |
 | `voiceCoder.maxEndpointDelayMs` | `1000` | Soniox の発話終了判定の上限 |
 
 `.vsix` には SDK 同梱の Claude Code 実行ファイル（Windows で 238 MB）を入れていない。

@@ -50,7 +50,8 @@
         "voiceCoder.pythonPath": {
           "type": "string",
           "default": "python",
-          "description": "マイクのサイドカー (python/mic_sidecar.py) を動かす Python。PyAudio が入っていること。"
+          "description": "マイクのサイドカー (python/mic_sidecar.py) を動かす Python。PyAudio が入っていること。",
+          "scope": "machine"
         },
         "voiceCoder.micDevice": {
           "type": [
@@ -102,6 +103,18 @@
             "すべて jev（typesafe.ai）。1 回 0.2 秒ほど"
           ],
           "description": "発話から generate / explain / debug を読む方法。行範囲はどれでも正規表現で読む。比較は docs/JEV.md。"
+        },
+        "voiceCoder.envFile": {
+          "type": "string",
+          "default": "",
+          "description": "API キー（SONIOX_API_KEY / OPENAI_API_KEY / TYPESAFE_API_KEY / ANTHROPIC_API_KEY）を書いた .env のパス。相対パスはワークスペースから。環境変数があればそちらが優先。値はこの拡張の中だけで使い、VS Code の環境変数には入れない。",
+          "scope": "machine"
+        },
+        "voiceCoder.replayWav": {
+          "type": "string",
+          "default": "",
+          "description": "動作確認用: マイクの代わりにこの WAV（16 kHz モノラル）を流す。空ならマイク。",
+          "scope": "machine"
         }
       }
     }

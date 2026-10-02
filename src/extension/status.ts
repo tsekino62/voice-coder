@@ -44,7 +44,8 @@ export class StatusView implements vscode.Disposable {
   }
 
   error(message: string): void {
-    this.set(`$(error) ${clip(message)}`, message);
+    // The start of an error says what failed; the tooltip has the rest
+    this.set(`$(error) ${message.length > MAX_TEXT ? message.slice(0, MAX_TEXT) + "…" : message}`, message);
   }
 
   private set(text: string, tooltip: string): void {

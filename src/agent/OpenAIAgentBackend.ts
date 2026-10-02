@@ -26,6 +26,9 @@ export class OpenAIAgentBackend implements AgentBackend {
       apiKey: options.apiKey ?? process.env.OPENAI_API_KEY,
       baseURL: options.baseURL,
       fetch: options.fetch,
+      // A voice command is worth a minute at most; never leave the status bar spinning
+      timeout: 60_000,
+      maxRetries: 1,
     });
   }
 

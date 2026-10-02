@@ -24,6 +24,8 @@ export interface SttBackend {
   start(): Promise<void>;
   onPartial(listener: (partial: Transcript) => void): void;
   onFinal(listener: (final: FinalTranscript) => void): void;
+  /** A failure after start() (lost connection, the microphone could not open, ...). */
+  onError?(listener: (error: Error) => void): void;
   /** Ends the stream and releases the connection. Safe to call more than once. */
   stop(): Promise<void>;
 }
@@ -32,6 +34,7 @@ export interface SttBackend {
 export class SttEvents {
   private readonly partialListeners: Array<(partial: Transcript) => void> = [];
   private readonly finalListeners: Array<(final: FinalTranscript) => void> = [];
+  private readonly errorListeners: Array<(error: Error) => void> = [];
 
   onPartial(listener: (partial: Transcript) => void): void {
     this.partialListeners.push(listener);
@@ -39,6 +42,14 @@ export class SttEvents {
 
   onFinal(listener: (final: FinalTranscript) => void): void {
     this.finalListeners.push(listener);
+  }
+
+  onError(listener: (error: Error) => void): void {
+    this.errorListeners.push(listener);
+  }
+
+  emitError(error: Error): void {
+    for (const listener of this.errorListeners) listener(error);
   }
 
   emitPartial(partial: Transcript): void {

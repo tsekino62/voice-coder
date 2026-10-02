@@ -124,7 +124,22 @@ export class ActionRunner implements vscode.Disposable {
   }
 
   /** The final transcript is in: apply the dispatch that stands, drop the rest. */
+  /** No command is being carried out (agent runs and their results all settled). */
+  get idle(): boolean {
+    return this.resolving === 0 && this.runs.size === 0;
+  }
+  private resolving = 0;
+
   async resolve(resolution: Resolution): Promise<void> {
+    this.resolving++;
+    try {
+      await this.resolveOne(resolution);
+    } finally {
+      this.resolving--;
+    }
+  }
+
+  private async resolveOne(resolution: Resolution): Promise<void> {
     for (const aborted of resolution.aborted) this.runs.delete(aborted);
     const dispatch = resolution.dispatch;
     if (!dispatch) {

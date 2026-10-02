@@ -94,6 +94,20 @@ export async function speak(api: VoiceCoderApi, script: Step[]): Promise<ActionR
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Wait until the extension has finished everything a test started, so a late
+ * report (a trailing fragment of an utterance, a slow agent) never lands in the next test.
+ */
+export async function settle(api: VoiceCoderApi, timeoutMs = 30_000): Promise<void> {
+  for (let waited = 0; waited < timeoutMs; waited += 50) {
+    if (api.idle) {
+      await sleep(100);
+      if (api.idle) return;
+    }
+    await sleep(50);
+  }
+}
+
 export function numberedLines(count: number): string {
   return Array.from({ length: count }, (_, i) => `const line${i + 1} = ${i + 1};`).join("\n") + "\n";
 }

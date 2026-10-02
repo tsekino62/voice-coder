@@ -55,6 +55,11 @@ export class VoiceController implements vscode.Disposable {
       this.status.partial(text);
     });
     stt.onFinal(({ text }) => (this.lastText = text));
+    stt.onError?.((error) => {
+      this.fail(error);
+      // Stop listening, but leave the error in the status bar
+      if (this.stt === stt) void this.stop(false);
+    });
     this.status.listening();
     this.starting = stt.start();
     try {
@@ -67,10 +72,10 @@ export class VoiceController implements vscode.Disposable {
     }
   }
 
-  async stop(): Promise<void> {
+  async stop(showFinishing = true): Promise<void> {
     const stt = this.stt;
     if (!stt) return;
-    this.status.finishing(this.lastText || "…");
+    if (showFinishing) this.status.finishing(this.lastText || "…");
     await this.starting?.catch(() => {});
     try {
       await stt.stop();
@@ -82,7 +87,8 @@ export class VoiceController implements vscode.Disposable {
   }
 
   private fail(error: unknown): void {
-    const message = error instanceof Error ? error.message : String(error);
+    let message = error instanceof Error ? error.message : String(error);
+    if (/pyaudio/i.test(message)) message += "。PyAudio が入った Python を設定 voiceCoder.pythonPath に指定してください";
     this.status.error(message);
     void vscode.window.showErrorMessage(`Voice Coder: ${message}`);
   }

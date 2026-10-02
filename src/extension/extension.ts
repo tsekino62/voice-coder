@@ -12,6 +12,7 @@ import { SonioxBackend } from "../stt/SonioxBackend.js";
 import type { SttBackend } from "../stt/SttBackend.js";
 import { ActionRunner, type ActionReport, type Proposal } from "./actions.js";
 import { VoiceController } from "./controller.js";
+import { readKeys, type KeyName } from "./keys.js";
 import { StatusView } from "./status.js";
 
 /** Returned from activate(); the integration tests swap backends through it. */
@@ -20,6 +21,8 @@ export interface VoiceCoderApi {
   readonly onStatus: vscode.Event<string>;
   readonly onActionDone: vscode.Event<ActionReport>;
   readonly listening: boolean;
+  /** Not listening and no command in progress. */
+  readonly idle: boolean;
   pendingProposal(): Proposal | undefined;
   setSttFactory(factory: (() => SttBackend) | undefined): void;
   setAgentBackend(agent: AgentBackend | undefined): void;
@@ -35,21 +38,30 @@ function config() {
     claudeCodePath: c.get<string>("claudeCodePath") || "",
     maxEndpointDelayMs: c.get<number>("maxEndpointDelayMs") ?? 1000,
     intentReader: c.get<"regex" | "jev" | "hybrid">("intentReader") ?? "hybrid",
+    envFile: c.get<string>("envFile") || "",
+    replayWav: c.get<string>("replayWav") || "",
   };
 }
 
 export function activate(context: vscode.ExtensionContext): VoiceCoderApi {
   let sttFactory: (() => SttBackend) | undefined;
   let agentOverride: AgentBackend | undefined;
+  // Read on every use, so editing the .env or the setting takes effect without a reload
+  const keys = () => readKeys(config().envFile, vscode.workspace.workspaceFolders?.[0]?.uri.fsPath);
+  const required = (name: KeyName): string => {
+    const value = keys()[name];
+    if (!value) throw new Error(`${name} がありません（環境変数か、設定 voiceCoder.envFile で指す .env に書く）`);
+    return value;
+  };
 
   const defaultStt = (): SttBackend => {
-    const apiKey = process.env.SONIOX_API_KEY;
-    if (!apiKey) throw new Error("環境変数 SONIOX_API_KEY が設定されていません");
+    const apiKey = required("SONIOX_API_KEY");
     const c = config();
     const source = new SidecarAudioSource({
       python: c.pythonPath,
       script: context.asAbsolutePath("python/mic_sidecar.py"),
-      args: c.micDevice === null ? [] : ["--device", String(c.micDevice)],
+      // replayWav: the sidecar plays a file instead of the mic (for trying the pipeline without speaking)
+      args: c.replayWav ? ["--wav", c.replayWav] : c.micDevice === null ? [] : ["--device", String(c.micDevice)],
     });
     return new SonioxBackend(source, { apiKey, maxEndpointDelayMs: c.maxEndpointDelayMs });
   };
@@ -57,10 +69,10 @@ export function activate(context: vscode.ExtensionContext): VoiceCoderApi {
     if (agentOverride) return agentOverride;
     const c = config();
     if (c.agent === "openai") {
-      if (!process.env.OPENAI_API_KEY) throw new Error("環境変数 OPENAI_API_KEY が設定されていません");
-      return new OpenAIAgentBackend({ model: c.model || DEFAULT_OPENAI_MODEL });
+      return new OpenAIAgentBackend({ apiKey: required("OPENAI_API_KEY"), model: c.model || DEFAULT_OPENAI_MODEL });
     }
     return new ClaudeAgentBackend({
+      apiKey: keys().ANTHROPIC_API_KEY,
       model: c.model || "claude-opus-5-5",
       pathToClaudeCodeExecutable: findClaudeExecutable(c.claudeCodePath),
       cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
@@ -74,16 +86,18 @@ export function activate(context: vscode.ExtensionContext): VoiceCoderApi {
     else if (state === "done") status.done(label);
     else status.error(label);
   });
-  let jev: JevIntentReader | undefined;
+  const jevByKey = new Map<string, JevIntentReader>();
   const reader = (): IntentReader => {
     const mode = config().intentReader;
     if (mode === "regex") return parseIntent;
-    if (!process.env.TYPESAFE_API_KEY) {
+    const apiKey = keys().TYPESAFE_API_KEY;
+    if (!apiKey) {
       // hybrid quietly degrades to keywords; an explicit jev choice deserves a word
       if (mode === "jev") void vscode.window.showWarningMessage("Voice Coder: TYPESAFE_API_KEY が無いので jev を使わず正規表現で意図を読みます");
       return parseIntent;
     }
-    jev ??= new JevIntentReader();
+    let jev = jevByKey.get(apiKey);
+    if (!jev) jevByKey.set(apiKey, (jev = new JevIntentReader({ apiKey })));
     return mode === "jev" ? jev.read : hybridReader(jev.read);
   };
   const controller = new VoiceController(() => (sttFactory ?? defaultStt)(), actions, status, reader);
@@ -104,6 +118,9 @@ export function activate(context: vscode.ExtensionContext): VoiceCoderApi {
     onActionDone: actions.onDidReport,
     get listening() {
       return controller.listening;
+    },
+    get idle() {
+      return !controller.listening && actions.idle;
     },
     pendingProposal: () => actions.pendingProposal,
     setSttFactory: (factory) => (sttFactory = factory),

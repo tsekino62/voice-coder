@@ -2,7 +2,7 @@ import * as assert from "node:assert/strict";
 import * as vscode from "vscode";
 import { MockAgentBackend, type MockResponder } from "../../src/agent/MockAgentBackend.js";
 import type { VoiceCoderApi } from "../../src/extension/extension.js";
-import { agentFor, getApi, speak } from "./helpers.js";
+import { agentFor, getApi, settle, speak } from "./helpers.js";
 
 const SHAPE = [
   "export abstract class Shape {",
@@ -57,6 +57,7 @@ describe("refactor and file creation (proposed as diffs, written on approval)", 
   });
 
   afterEach(async () => {
+    await settle(api);
     api.setSttFactory(undefined);
     api.setAgentBackend(undefined);
     await vscode.commands.executeCommand("voiceCoder.discardProposal");

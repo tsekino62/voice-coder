@@ -6,6 +6,8 @@ import type { AgentBackend, AgentContext, AgentTarget } from "./AgentBackend.js"
 import { buildPrompt } from "./prompt.js";
 
 export interface ClaudeAgentOptions {
+  /** ANTHROPIC_API_KEY for the Claude Code process; its own login when unset. */
+  apiKey?: string;
   model?: string;
   /** Claude Code executable; the SDK's bundled one when unset. */
   pathToClaudeCodeExecutable?: string;
@@ -50,7 +52,11 @@ export class ClaudeAgentBackend implements AgentBackend {
       settingSources: [],
       cwd: this.options.cwd,
       pathToClaudeCodeExecutable: this.options.pathToClaudeCodeExecutable || undefined,
-      env: { ...process.env, CLAUDE_AGENT_SDK_CLIENT_APP: "voice-coder/0.1.0" } as Record<string, string>,
+      env: {
+        ...process.env,
+        ...(this.options.apiKey ? { ANTHROPIC_API_KEY: this.options.apiKey } : {}),
+        CLAUDE_AGENT_SDK_CLIENT_APP: "voice-coder/0.1.0",
+      } as Record<string, string>,
     };
     try {
       for await (const message of query({ prompt: prompt.user, options }) as AsyncIterable<SDKMessage>) {
