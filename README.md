@@ -125,6 +125,8 @@ npx vsce package
   音声認識はどちらの場合も、タイミングを決めて partial / final を流すスクリプトに差し替える。
 - `SONIOX_API_KEY` があると `test/audio/` の 15 本を実時間で Soniox に流す統合テストも走る（無ければ skip）。
   `npm run latency` で `docs/LATENCY.md` を計測し直す。`TYPESAFE_API_KEY` もあると、同じ音声で jev による意図の読み取りも確かめる。
+- `npm run stt:compare` は音声認識を Soniox と OpenAI（`gpt-live-transcribe` / `gpt-transcribe`、Codex のディクテーション相当）で
+  比べ、`docs/STT_COMPARE.md` に書く（30 本、push-to-talk で発話終了 300 ms 後に離した扱い）。
 - `npm run jev:compare` は正規表現 / jev / ハイブリッドを、キーワードありの 15 本と無しの 15 本（`test/audio/para_*.wav`）で比べ、`docs/JEV.md` に書く。
 - `test/audio/` の WAV はコミット済み。作り直すのは `npm run gen:audio -- --force` を明示的に実行したときだけ。
 
