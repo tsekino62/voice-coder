@@ -113,6 +113,12 @@ describe("normalization", () => {
     expect(normalizeText("従業員の一覧")).toBe("従業員の一覧");
   });
 
+  it("reads から heard as か between two line numbers (Soniox on a live mic)", () => {
+    expect(parseLineRange(normalizeText("21行目か25行目は何をやってるか。"))).toEqual({ from: 21, to: 25 });
+    expect(parseIntent("21行目か25行目を説明して")?.range).toEqual({ from: 21, to: 25 });
+    expect(parseLineRange(normalizeText("21か25"))).toBeNull();
+  });
+
   it("reads a misheard counter on the first line when the second says 行目 (Soniox: 10秒目 for 十行目)", () => {
     expect(parseLineRange(normalizeText("10秒目から20行目、これ何してるんだっけ"))).toEqual({ from: 10, to: 20 });
     expect(parseLineRange(normalizeText("10秒目から20秒目"))).toBeNull();

@@ -58,7 +58,9 @@ const SEP = String.raw`\s*(?:から|[-~〜ー―])\s*`;
 const LINE = String.raw`\s*行目?`;
 // 10行目から20行目 / 10-20行目 / 10から20行目 / 10行目から20(まで)
 // / 10秒目から20行目 (the first counter misheard, the second still says 行目)
+// / 21行目か25行目 (から heard as か; only with 行目 on both sides)
 const RANGE_PATTERNS = [
+  new RegExp(String.raw`(\d+)${LINE}\s*か\s*(\d+)${LINE}`),
   new RegExp(String.raw`(\d+)(?:${LINE})?${SEP}(\d+)${LINE}`),
   new RegExp(String.raw`(\d+)${LINE}${SEP}(\d+)`),
   new RegExp(String.raw`(\d+)\s*[^\d\s]目${SEP}(\d+)${LINE}`),

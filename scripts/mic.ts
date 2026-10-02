@@ -75,6 +75,13 @@ export async function fetchUser(id: string) {
 }
 `;
 
+// What the agent is told the language is (VS Code gives the editor's language mode instead)
+const LANGUAGES: Record<string, string> = {
+  ".ts": "typescript", ".tsx": "typescriptreact", ".js": "javascript", ".jsx": "javascriptreact", ".mjs": "javascript",
+  ".py": "python", ".java": "java", ".kt": "kotlin", ".go": "go", ".rs": "rust", ".rb": "ruby", ".php": "php",
+  ".cs": "csharp", ".cpp": "cpp", ".c": "c", ".h": "c", ".swift": "swift", ".scala": "scala", ".sql": "sql", ".sh": "shellscript",
+};
+
 const dim = (s: string) => `\x1b[2m${s}\x1b[0m`;
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 const sec = (ms: number) => `${ms >= 0 ? "+" : ""}${(ms / 1000).toFixed(2)} s`;
@@ -150,8 +157,16 @@ async function main(): Promise<void> {
 
   const fileText = opts.file ? readFileSync(opts.file, "utf8") : SAMPLE;
   const fileName = opts.file ? basename(opts.file) : "sample.ts";
-  const languageId = { ".ts": "typescript", ".js": "javascript", ".py": "python" }[extname(fileName)] ?? "plaintext";
+  const languageId = LANGUAGES[extname(fileName).toLowerCase()] ?? "plaintext";
   const lines = fileText.split("\n");
+  const describeTarget = (intent: Intent) => {
+    const where = opts.file ? fileName : `${fileName}（内蔵サンプル。自分のファイルは --file で指定）`;
+    if (intent.kind === "generate") return `${where} の末尾に書く想定（このツールは表示だけで書き込まない）`;
+    const range = intent.range;
+    if (!range) return `${where} 全体`;
+    const beyond = range.from > lines.length ? `  ⚠ ${lines.length} 行しかないファイルです` : "";
+    return `${where} ${range.from}-${Math.min(range.to, lines.length)}行目${beyond}`;
+  };
   const reader = makeReader();
   const { agent, name: agentName } = makeAgent();
 
@@ -226,6 +241,7 @@ async function main(): Promise<void> {
           for (const aborted of resolution.aborted) say(`  ✗ 先読みを中断: ${label(aborted.intent)}`);
           const standing = resolution.dispatch;
           say(`  = 採用: ${bold(label(resolution.intent))}${standing ? (standing.speculative ? "（先読みが当たり）" : "（final で発火）") : ""}`);
+          if (resolution.intent) say(`  対象: ${describeTarget(resolution.intent)}`);
           const run = standing && runs.get(standing);
           if (run) {
             say(dim("  --- 応答 ---"));
