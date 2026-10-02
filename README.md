@@ -98,7 +98,7 @@ npm run mic -- --python D:\work\stt_probe\.venv\Scripts\python.exe
 | キー | コマンド |
 |---|---|
 | `Ctrl+Alt+V` / `Cmd+Alt+V` | `Voice Coder: 音声入力の開始/停止`（`voiceCoder.toggleListening`） |
-| （なし） | `Voice Coder: 修正案を適用`（`voiceCoder.applyProposal`） |
+| （なし） | `Voice Coder: 修正案を適用`（`voiceCoder.applyProposal`。debug / refactor / create の変更案） |
 | （なし） | `Voice Coder: 修正案を破棄`（`voiceCoder.discardProposal`） |
 
 変えるときは「キーボード ショートカット」で `voiceCoder.toggleListening` を探す。ステータスバー左のマイクアイコン「Voice」をクリックしても同じ。
