@@ -8,6 +8,10 @@ const KIND_CRITERIA = {
   debug:
     "The speaker asks to find or fix a bug or an error, or reports that the code misbehaves " +
     "(tests fail, wrong values, exceptions, crashes, hangs, unexpected results). Reporting such a problem is a request to debug it.",
+  refactor:
+    "The speaker asks to restructure existing code without changing what it does: refactor, rename, extract, split, " +
+    "or merge similar classes into a shared abstract base class.",
+  create: "The speaker asks to add a new file (a new module, class file or config file).",
   none: "No complete request yet: filler words, an unfinished sentence, or something else.",
 } as const;
 

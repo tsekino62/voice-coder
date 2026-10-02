@@ -23,7 +23,7 @@ describe("JevIntentReader", () => {
     const intent = await reader.read("十行目から二十行目を解説して");
     expect(intent).toEqual({ kind: "explain", range: { from: 10, to: 20 }, terms: [] });
     expect(bodies[0]).toMatchObject({ model: "jev-latest", state: "十行目から二十行目を解説して", questions: { kind: { type: "choice" } } });
-    expect(Object.keys((bodies[0].questions as { kind: { criteria: object } }).kind.criteria)).toEqual(["generate", "explain", "debug", "none"]);
+    expect(Object.keys((bodies[0].questions as { kind: { criteria: object } }).kind.criteria)).toEqual(["generate", "explain", "debug", "refactor", "create", "none"]);
     expect(reader.calls[0]).toMatchObject({ choice: "explain", probability: 0.97 });
   });
 

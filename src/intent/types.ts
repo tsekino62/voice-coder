@@ -1,4 +1,9 @@
-export type IntentKind = "generate" | "explain" | "debug";
+/**
+ * generate: write code at the cursor. explain: describe code. debug: fix a problem.
+ * refactor: restructure existing code (possibly across files), e.g. merge similar classes into an abstract class.
+ * create: add a new file.
+ */
+export type IntentKind = "generate" | "explain" | "debug" | "refactor" | "create";
 
 export interface LineRange {
   from: number;

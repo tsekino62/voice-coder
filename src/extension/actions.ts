@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import type { AgentBackend, AgentContext, AgentTarget } from "../agent/AgentBackend.js";
-import { extractCodeBlock } from "../agent/prompt.js";
+import { extractCodeBlock, parseFileEdits, safeRelativePath } from "../agent/prompt.js";
 import type { Dispatch, Resolution } from "../intent/speculator.js";
 import type { Intent, IntentKind } from "../intent/types.js";
 
@@ -17,18 +17,34 @@ export interface ActionReport {
   error?: string;
 }
 
-/** A debug fix waiting for approval. Nothing is written until it is applied. */
+/** One file in a proposal: created, or rewritten as a whole. */
+export interface ProposedChange {
+  uri: vscode.Uri;
+  /** A new file (it did not exist when the proposal was made). */
+  create: boolean;
+  /** The file's text when the proposal was made; applying is refused if it changed since. */
+  originalText: string;
+  /** The whole file as it would be after applying. */
+  newText: string;
+  /** Left side of the diff: the file itself, or an empty document for a new file. */
+  originalUri: vscode.Uri;
+  /** Right side of the diff. */
+  proposalUri: vscode.Uri;
+}
+
+/** Changes waiting for approval (debug / refactor / create). Nothing is written until applied. */
 export interface Proposal {
   id: number;
-  documentUri: vscode.Uri;
-  proposalUri: vscode.Uri;
-  /** Document version the fix was computed against. */
-  version: number;
-  range: vscode.Range;
-  newText: string;
-  /** The whole document as it would be after applying. */
-  proposedDocument: string;
+  title: string;
+  changes: ProposedChange[];
 }
+
+type NewChange = Omit<ProposedChange, "originalUri" | "proposalUri">;
+
+/** Open files beyond this size are not sent to the agent as context. */
+const MAX_CONTEXT_FILE_CHARS = 60_000;
+const MAX_CONTEXT_FILES = 10;
+const MAX_WORKSPACE_FILES = 300;
 
 interface Run {
   dispatch: Dispatch;
@@ -54,7 +70,8 @@ export class ActionRunner implements vscode.Disposable {
   private readonly runs = new Map<Dispatch, Run>();
   private readonly reported = new vscode.EventEmitter<ActionReport>();
   readonly onDidReport = this.reported.event;
-  private readonly proposals = new Map<string, Proposal>();
+  /** Right-hand diff documents by URI. */
+  private readonly proposedTexts = new Map<string, string>();
   private pending: Proposal | undefined;
   private nextProposalId = 1;
   private readonly provider: vscode.Disposable;
@@ -65,7 +82,7 @@ export class ActionRunner implements vscode.Disposable {
     private readonly onStatus: (state: "running" | "done" | "error", label: string) => void,
   ) {
     this.provider = vscode.workspace.registerTextDocumentContentProvider(PROPOSAL_SCHEME, {
-      provideTextDocumentContent: (uri) => this.proposals.get(uri.toString())?.proposedDocument ?? "",
+      provideTextDocumentContent: (uri) => this.proposedTexts.get(uri.toString()) ?? "",
     });
   }
 
@@ -87,7 +104,13 @@ export class ActionRunner implements vscode.Disposable {
         diagnostics: errorsIn(editor.document, target),
         signal: dispatch.signal,
       };
+      const multiFile = dispatch.intent.kind === "refactor" || dispatch.intent.kind === "create";
       run.done = (async () => {
+        if (multiFile) {
+          context.files = openFiles(editor.document);
+          context.workspaceFiles = await workspaceFiles();
+          if (dispatch.signal.aborted) return;
+        }
         for await (const text of this.agent().run(dispatch.intent, target, context)) {
           if (dispatch.signal.aborted) return;
           run.output += text;
@@ -145,6 +168,10 @@ export class ActionRunner implements vscode.Disposable {
       case "debug":
         await this.proposeFix(run, name);
         return;
+      case "refactor":
+      case "create":
+        await this.proposeFileEdits(run, name);
+        return;
     }
   }
 
@@ -165,43 +192,109 @@ export class ActionRunner implements vscode.Disposable {
     const document = run.document!;
     const target = run.target!;
     const range = new vscode.Range(target.startLine, 0, target.endLine, document.lineAt(target.endLine).text.length);
-    const newText = extractCodeBlock(run.output);
-    if (newText === document.getText(range)) {
+    const replacement = extractCodeBlock(run.output);
+    if (replacement === document.getText(range)) {
       this.finish(run, false, `${name}: 修正案はありません`);
       return;
     }
-    const id = this.nextProposalId++;
-    const proposalUri = vscode.Uri.from({ scheme: PROPOSAL_SCHEME, path: document.uri.path || "/untitled", query: `id=${id}` });
     const full = document.getText();
-    const proposedDocument = full.slice(0, document.offsetAt(range.start)) + newText + full.slice(document.offsetAt(range.end));
-    const proposal: Proposal = { id, documentUri: document.uri, proposalUri, version: document.version, range, newText, proposedDocument };
-    this.proposals.set(proposalUri.toString(), proposal);
+    const newText = full.slice(0, document.offsetAt(range.start)) + replacement + full.slice(document.offsetAt(range.end));
+    await this.propose(run, name, `修正案（未適用）: ${name}`, [{ uri: document.uri, create: false, originalText: full, newText }]);
+  }
+
+  /** refactor / create: the agent's `=== path ===` files, as one proposal over all of them. */
+  private async proposeFileEdits(run: Run, name: string): Promise<void> {
+    const edits = parseFileEdits(run.output);
+    if (edits.length === 0) {
+      this.finish(run, false, `${name}: 変更案がありませんでした`);
+      return;
+    }
+    const root = vscode.workspace.getWorkspaceFolder(run.document!.uri)?.uri ?? vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!root) {
+      this.finish(run, false, `${name}: ファイルを作るにはフォルダー（ワークスペース）を開いてください`);
+      return;
+    }
+    const changes: NewChange[] = [];
+    for (const edit of edits) {
+      const path = safeRelativePath(edit.path);
+      // The agent's reply decides file names: never let one point outside the workspace
+      if (!path) {
+        this.finish(run, false, `${name}: ワークスペースの外を指すパスがあったので中止しました（${edit.path}）`);
+        return;
+      }
+      const uri = vscode.Uri.joinPath(root, path);
+      const existing = await readText(uri);
+      if (existing === edit.content) continue;
+      changes.push({ uri, create: existing === undefined, originalText: existing ?? "", newText: edit.content });
+    }
+    if (changes.length === 0) {
+      this.finish(run, false, `${name}: 変更はありませんでした`);
+      return;
+    }
+    await this.propose(run, name, `変更案（未適用）: ${name}`, changes);
+  }
+
+  /** Show the changes as diffs and keep them pending until approved. */
+  private async propose(run: Run, name: string, title: string, changes: NewChange[]): Promise<void> {
+    const id = this.nextProposalId++;
+    const proposal: Proposal = {
+      id,
+      title,
+      changes: changes.map((change, i) => {
+        const path = change.uri.path || "/untitled";
+        const proposalUri = vscode.Uri.from({ scheme: PROPOSAL_SCHEME, path, query: `id=${id}&file=${i}` });
+        const originalUri = change.create ? vscode.Uri.from({ scheme: PROPOSAL_SCHEME, path, query: `id=${id}&file=${i}&empty` }) : change.uri;
+        this.proposedTexts.set(proposalUri.toString(), change.newText);
+        return { ...change, originalUri, proposalUri };
+      }),
+    };
     this.pending = proposal;
 
-    await vscode.commands.executeCommand("vscode.diff", document.uri, proposalUri, `Voice Coder 修正案（未適用）: ${name}`, { preview: true, preserveFocus: true });
-    this.finish(run, true, `${name}: 修正案を表示しました（未適用）`);
-    void vscode.window.showInformationMessage("Voice Coder: 修正案を適用しますか？", "適用", "破棄").then((choice) => {
+    const [first] = proposal.changes;
+    if (proposal.changes.length === 1 && !first.create) {
+      await vscode.commands.executeCommand("vscode.diff", first.uri, first.proposalUri, `Voice Coder ${title}`, { preview: true, preserveFocus: true });
+    } else {
+      // Every file in one multi-file diff editor
+      await vscode.commands.executeCommand(
+        "vscode.changes",
+        `Voice Coder ${title}`,
+        proposal.changes.map((c) => [c.uri, c.originalUri, c.proposalUri]),
+      );
+    }
+    const summary = proposal.changes.map((c) => `${c.create ? "新規" : "変更"} ${vscode.workspace.asRelativePath(c.uri)}`).join("、");
+    this.finish(run, true, `${name}: ${proposal.changes.length} ファイルの変更案を表示しました（未適用）`);
+    void vscode.window.showInformationMessage(`Voice Coder: 適用しますか？ ${summary}`, "適用", "破棄").then((choice) => {
       if (this.pending?.id !== id) return;
       if (choice === "適用") void this.applyProposal();
       else if (choice === "破棄") this.discardProposal();
     });
   }
 
-  /** Write the pending fix into the document, unless the document changed since. */
+  /**
+   * Write the pending changes in one WorkspaceEdit, unless a file changed
+   * (or a new file appeared) since the proposal was made.
+   */
   async applyProposal(): Promise<boolean> {
     const proposal = this.pending;
     if (!proposal) {
-      void vscode.window.showWarningMessage("Voice Coder: 適用待ちの修正案はありません");
+      void vscode.window.showWarningMessage("Voice Coder: 適用待ちの変更案はありません");
       return false;
     }
     this.pending = undefined;
-    const document = vscode.workspace.textDocuments.find((d) => d.uri.toString() === proposal.documentUri.toString());
-    if (!document || document.version !== proposal.version) {
-      void vscode.window.showWarningMessage("Voice Coder: 修正案の作成後にファイルが変わったので適用しません");
-      return false;
-    }
     const edit = new vscode.WorkspaceEdit();
-    edit.replace(document.uri, proposal.range, proposal.newText);
+    for (const change of proposal.changes) {
+      const current = await readText(change.uri);
+      if (change.create ? current !== undefined : current !== change.originalText) {
+        void vscode.window.showWarningMessage(`Voice Coder: 変更案の作成後に ${vscode.workspace.asRelativePath(change.uri)} が変わったので適用しません`);
+        return false;
+      }
+      if (change.create) {
+        edit.createFile(change.uri, { contents: new TextEncoder().encode(change.newText) });
+      } else {
+        const document = await vscode.workspace.openTextDocument(change.uri);
+        edit.replace(change.uri, new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length)), change.newText);
+      }
+    }
     return vscode.workspace.applyEdit(edit);
   }
 
@@ -250,7 +343,7 @@ export function resolveTarget(editor: vscode.TextEditor, intent: Intent): { targ
       ? ""
       : document.getText(new vscode.Range(startLine, 0, endLine, document.lineAt(endLine).text.length));
   const target: AgentTarget = {
-    fileName: document.fileName,
+    fileName: document.uri.scheme === "file" ? vscode.workspace.asRelativePath(document.uri, false) : document.fileName,
     languageId: document.languageId,
     startLine,
     endLine,
@@ -265,4 +358,29 @@ function errorsIn(document: vscode.TextDocument, target: AgentTarget) {
     .filter((d) => d.severity === vscode.DiagnosticSeverity.Error)
     .filter((d) => d.range.end.line >= target.startLine && d.range.start.line <= target.endLine)
     .map((d) => ({ line: d.range.start.line, message: d.message }));
+}
+
+/** A file's text: the open document's (unsaved edits included), else from disk; undefined if it does not exist. */
+async function readText(uri: vscode.Uri): Promise<string | undefined> {
+  const open = vscode.workspace.textDocuments.find((d) => d.uri.toString() === uri.toString());
+  if (open) return open.getText();
+  try {
+    return new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
+  } catch {
+    return undefined;
+  }
+}
+
+/** The editor's other open files, as context for a change that may span files. */
+function openFiles(active: vscode.TextDocument): Array<{ path: string; text: string }> {
+  return vscode.workspace.textDocuments
+    .filter((d) => d !== active && d.uri.scheme === "file" && d.getText().length <= MAX_CONTEXT_FILE_CHARS)
+    .slice(0, MAX_CONTEXT_FILES)
+    .map((d) => ({ path: vscode.workspace.asRelativePath(d.uri, false), text: d.getText() }));
+}
+
+async function workspaceFiles(): Promise<string[]> {
+  if (!vscode.workspace.workspaceFolders?.length) return [];
+  const uris = await vscode.workspace.findFiles("**/*", "{**/node_modules/**,**/.git/**,**/dist/**,**/out/**}", MAX_WORKSPACE_FILES);
+  return uris.map((uri) => vscode.workspace.asRelativePath(uri, false)).sort();
 }

@@ -162,6 +162,7 @@ async function main(): Promise<void> {
   const describeTarget = (intent: Intent) => {
     const where = opts.file ? fileName : `${fileName}（内蔵サンプル。自分のファイルは --file で指定）`;
     if (intent.kind === "generate") return `${where} の末尾に書く想定（このツールは表示だけで書き込まない）`;
+    if (intent.kind === "refactor" || intent.kind === "create") return `${where} を起点にした変更案（このツールは表示だけ。VS Code では diff を見て承認すると書き込む）`;
     const range = intent.range;
     if (!range) return `${where} 全体`;
     const beyond = range.from > lines.length ? `  ⚠ ${lines.length} 行しかないファイルです` : "";

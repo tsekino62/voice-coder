@@ -2,6 +2,7 @@ import type { Intent } from "../intent/types.js";
 
 /** The code a command is about. Lines are 0-based, `endLine` inclusive. */
 export interface AgentTarget {
+  /** Relative to the workspace root when there is one. */
   fileName: string;
   languageId: string;
   startLine: number;
@@ -23,6 +24,13 @@ export interface AgentContext {
   documentText: string;
   /** Errors reported for the file (debug uses them). */
   diagnostics: AgentDiagnostic[];
+  /**
+   * Other files the change may touch (refactor / create): the editor's open
+   * files, paths relative to the workspace root.
+   */
+  files?: Array<{ path: string; text: string }>;
+  /** Paths in the workspace, for choosing where a new file goes and what to import. */
+  workspaceFiles?: string[];
   /** Aborted when the intent turned out to be wrong; stop and produce nothing more. */
   signal: AbortSignal;
 }

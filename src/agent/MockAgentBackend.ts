@@ -33,6 +33,10 @@ export const defaultResponder: MockResponder = (intent, target) => {
       return `${target.startLine + 1}〜${target.endLine + 1} 行目の説明（モック）: この範囲は ${target.code.split("\n").length} 行のコードです。`;
     case "debug":
       return "```\n" + target.code + "\n```";
+    case "refactor":
+    case "create":
+      // Changes nothing: a test that needs file edits gives its own responder
+      return "";
   }
 };
 

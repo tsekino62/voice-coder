@@ -132,12 +132,12 @@ describe("Voice Coder in VS Code", () => {
         .flatMap((group) => group.tabs)
         .find((tab) => tab.input instanceof vscode.TabInputTextDiff && tab.input.modified.scheme === PROPOSAL_SCHEME);
       assert.ok(diffTab, "the diff editor is open");
-      const shown = await vscode.workspace.openTextDocument(proposal.proposalUri);
+      const shown = await vscode.workspace.openTextDocument(proposal.changes[0].proposalUri);
       if (!usingRealAgent()) assert.equal(shown.getText(), fixed);
 
       // Approval writes it
       assert.equal(await vscode.commands.executeCommand("voiceCoder.applyProposal"), true);
-      assert.equal(editor.document.getText(), proposal.proposedDocument);
+      assert.equal(editor.document.getText(), proposal.changes[0].newText);
       assert.equal(api.pendingProposal(), undefined);
     } finally {
       diagnostics.dispose();

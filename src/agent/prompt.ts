@@ -47,6 +47,32 @@ export function buildPrompt(intent: Intent, target: AgentTarget, context: AgentC
           "```",
         ].join("\n"),
       };
+    case "refactor":
+    case "create": {
+      const what =
+        intent.kind === "refactor"
+          ? "Restructure the code as asked without changing its behaviour. If similar classes are to be merged, " +
+            "move what they share into an abstract base class (in its own file if the project keeps one class per file) and make them extend it."
+          : "Create the new file(s) asked for, following the project's language and conventions.";
+      const lines =
+        intent.range || target.startLine !== 0 || target.endLine !== context.documentText.split("\n").length - 1
+          ? ` The user means lines ${target.startLine + 1}-${target.endLine + 1} of it.`
+          : "";
+      const files = [{ path: target.fileName, text: context.documentText }, ...(context.files ?? []).filter((f) => f.path !== target.fileName)];
+      return {
+        system: SYSTEM,
+        user: [
+          `Request (spoken): ${context.utterance}`,
+          what,
+          `Current file: ${where}.${lines}`,
+          ...(context.workspaceFiles?.length ? ["Files in the workspace:", ...context.workspaceFiles.slice(0, 300).map((f) => `- ${f}`)] : []),
+          "Open files:",
+          ...files.flatMap((f) => [`=== ${f.path} ===`, "```", f.text, "```"]),
+          "Reply only with the files to create or change. For each one, a line `=== <path relative to the workspace root> ===`",
+          "followed by one fenced code block with the file's complete new content. Leave out files that do not change. No explanation.",
+        ].join("\n"),
+      };
+    }
     case "debug": {
       const errors = context.diagnostics.length
         ? context.diagnostics.map((d) => `- line ${d.line + 1}: ${d.message}`).join("\n")
@@ -72,4 +98,29 @@ export function buildPrompt(intent: Intent, target: AgentTarget, context: AgentC
 export function extractCodeBlock(reply: string): string {
   const match = /```[^\n]*\n([\s\S]*?)\n?```/.exec(reply);
   return match ? match[1] : reply.trim();
+}
+
+/** One file in an agent's reply to refactor / create: its complete new content. */
+export interface FileEdit {
+  path: string;
+  content: string;
+}
+
+/** The `=== path ===` + fenced block pairs of a refactor / create reply. */
+export function parseFileEdits(reply: string): FileEdit[] {
+  const edits: FileEdit[] = [];
+  for (const match of reply.matchAll(/^===\s*(.+?)\s*===[ \t]*\r?\n```[^\n]*\n([\s\S]*?)\n?```/gm)) {
+    edits.push({ path: match[1].replace(/^`|`$/g, ""), content: match[2].endsWith("\n") ? match[2] : match[2] + "\n" });
+  }
+  return edits;
+}
+
+/**
+ * A path the agent may write: relative, inside the workspace. Returns the
+ * cleaned path, or null for anything absolute or climbing out with "..".
+ */
+export function safeRelativePath(path: string): string | null {
+  const cleaned = path.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+  if (!cleaned || cleaned.startsWith("/") || /^[a-zA-Z]:/.test(cleaned) || cleaned.split("/").some((part) => part === ".." || part === "")) return null;
+  return cleaned;
 }

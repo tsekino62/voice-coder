@@ -10,7 +10,19 @@ const INTENT_WORDS: Array<[IntentKind, RegExp]> = [
   ["explain", /説明|解説|教えて|どういう(?:意味|こと)|何をして|なにをして/g],
   // 作 but not 動作/操作/工作/制作 (動作しない is a bug report, not a request to build)
   ["generate", /(?<![動操工制])作[っるりれ成]|実装|書い|書く|書き|生成/g],
+  // 抽象クラスにまとめて / 共通化 / 切り出して / リネーム
+  ["refactor", /リファクタ|共通化|抽象化|抽象クラス|基底クラス|親クラス|スーパークラス|まとめ[てるた]|切り出|抽出|書き直|整理して|リネーム|名前を変え|分割/g],
+  // 新しいファイル / ファイルを作って / ファイルを追加
+  ["create", /(?:新しい|新規)ファイル|ファイル(?:を|に)?(?:新しく|新規に?)?(?:作[っるりれ成]|追加|用意)/g],
 ];
+
+/**
+ * Words that mark a change of mind (作って、あ、やっぱり説明して). Without one, a
+ * bigger request outranks a smaller one in the same sentence: 抽象クラスを作って
+ * is a refactoring, not a generate, and ファイルを作って is a new file.
+ */
+const RESTATEMENT = /やっぱ|いや|じゃなく|ではなく|違う|ちがう|やめ/;
+const PRECEDENCE: IntentKind[] = ["refactor", "create"];
 
 /** Right after an intent word, these take it back: 作るんじゃなくて, 説明はいらない. */
 const NEGATION = /^.{0,6}?(?:じゃなく|ではなく|じゃない|ではない|いらない|いらん|不要|やめ|なしで)/;
@@ -93,15 +105,18 @@ export function parseTerms(normalized: string): string[] {
 export function parseIntent(text: string): Intent | null {
   const normalized = normalizeText(text);
   let last: { kind: IntentKind; index: number } | null = null;
+  const found = new Set<IntentKind>();
   for (const [kind, pattern] of INTENT_WORDS) {
     for (const match of normalized.matchAll(pattern)) {
       const after = normalized.slice(match.index + match[0].length);
       if (NEGATION.test(after)) continue;
+      found.add(kind);
       if (!last || match.index > last.index) last = { kind, index: match.index };
     }
   }
   if (!last) return null;
-  return { kind: last.kind, range: parseLineRange(normalized), terms: parseTerms(normalized) };
+  const kind = RESTATEMENT.test(normalized) ? last.kind : (PRECEDENCE.find((k) => found.has(k)) ?? last.kind);
+  return { kind, range: parseLineRange(normalized), terms: parseTerms(normalized) };
 }
 
 /** Same command as far as the downstream action is concerned. */
