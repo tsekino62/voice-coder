@@ -1,0 +1,26 @@
+{
+  "name": "voice-coder",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Voice-to-intent layer for a Japanese voice coding extension",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "gen:audio": "tsx scripts/gen_audio.ts",
+    "latency": "tsx scripts/latency_report.ts"
+  },
+  "dependencies": {
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^3.2.7"
+  }
+}
