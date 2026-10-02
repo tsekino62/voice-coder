@@ -60,10 +60,23 @@
           "default": null,
           "description": "PyAudio の入力デバイス番号。null で既定のデバイス。"
         },
+        "voiceCoder.agent": {
+          "type": "string",
+          "enum": [
+            "openai",
+            "claude"
+          ],
+          "default": "openai",
+          "enumDescriptions": [
+            "OpenAI Responses API（OPENAI_API_KEY）",
+            "Claude Agent SDK（ANTHROPIC_API_KEY）"
+          ],
+          "description": "コマンドを実行する LLM。"
+        },
         "voiceCoder.model": {
           "type": "string",
-          "default": "claude-opus-5-5",
-          "description": "Claude Agent SDK に渡すモデル。"
+          "default": "",
+          "description": "モデル名。空なら openai は gpt-6.1-sol、claude は claude-opus-5-5。"
         },
         "voiceCoder.claudeCodePath": {
           "type": "string",
@@ -85,10 +98,12 @@
     "test:unit": "vitest run",
     "test:vscode": "node out/test/runTest.cjs",
     "gen:audio": "tsx scripts/gen_audio.ts",
-    "latency": "tsx scripts/latency_report.ts"
+    "latency": "tsx scripts/latency_report.ts",
+    "try:agent": "tsx scripts/try_agent.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.288",
+    "openai": "^7.27.0",
     "ws": "^8.22.0"
   },
   "devDependencies": {

@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import type { AgentBackend } from "../agent/AgentBackend.js";
 import { ClaudeAgentBackend } from "../agent/ClaudeAgentBackend.js";
 import { findClaudeExecutable } from "../agent/claudeExecutable.js";
+import { DEFAULT_OPENAI_MODEL, OpenAIAgentBackend } from "../agent/OpenAIAgentBackend.js";
 import { SidecarAudioSource } from "../audio/sidecar.js";
 import { SonioxBackend } from "../stt/SonioxBackend.js";
 import type { SttBackend } from "../stt/SttBackend.js";
@@ -25,7 +26,8 @@ function config() {
   return {
     pythonPath: c.get<string>("pythonPath") || "python",
     micDevice: c.get<number | null>("micDevice") ?? null,
-    model: c.get<string>("model") || "claude-opus-5-5",
+    agent: c.get<"openai" | "claude">("agent") ?? "openai",
+    model: c.get<string>("model") || "",
     claudeCodePath: c.get<string>("claudeCodePath") || "",
     maxEndpointDelayMs: c.get<number>("maxEndpointDelayMs") ?? 1000,
   };
@@ -49,8 +51,12 @@ export function activate(context: vscode.ExtensionContext): VoiceCoderApi {
   const agent = (): AgentBackend => {
     if (agentOverride) return agentOverride;
     const c = config();
+    if (c.agent === "openai") {
+      if (!process.env.OPENAI_API_KEY) throw new Error("環境変数 OPENAI_API_KEY が設定されていません");
+      return new OpenAIAgentBackend({ model: c.model || DEFAULT_OPENAI_MODEL });
+    }
     return new ClaudeAgentBackend({
-      model: c.model,
+      model: c.model || "claude-opus-5-5",
       pathToClaudeCodeExecutable: findClaudeExecutable(c.claudeCodePath),
       cwd: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
     });

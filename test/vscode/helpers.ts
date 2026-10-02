@@ -50,16 +50,19 @@ export async function getApi(): Promise<VoiceCoderApi> {
 }
 
 /**
- * The agent for a test: Claude when ANTHROPIC_API_KEY is set, otherwise a mock
- * that streams `responder`'s canned reply.
+ * The agent for a test: the extension's default (OpenAI) when OPENAI_API_KEY is
+ * set, otherwise a mock that streams `responder`'s canned reply.
+ * VOICE_CODER_MOCK_AGENT=1 forces the mock (no API spend).
  */
 export function agentFor(responder?: MockResponder, chunkDelayMs = 10): { agent: AgentBackend | undefined; mock: MockAgentBackend | undefined } {
-  if (process.env.ANTHROPIC_API_KEY) return { agent: undefined, mock: undefined };
+  if (usingRealAgent()) return { agent: undefined, mock: undefined };
   const mock = new MockAgentBackend(responder, 16, chunkDelayMs);
   return { agent: mock, mock };
 }
 
-export const usingRealAgent = () => Boolean(process.env.ANTHROPIC_API_KEY);
+export function usingRealAgent(): boolean {
+  return Boolean(process.env.OPENAI_API_KEY) && process.env.VOICE_CODER_MOCK_AGENT !== "1";
+}
 
 export async function openDocument(content: string, language = "typescript"): Promise<vscode.TextEditor> {
   const document = await vscode.workspace.openTextDocument({ content, language });
