@@ -1,8 +1,9 @@
 import * as vscode from "vscode";
 import type { AgentBackend, AgentContext, AgentTarget } from "../agent/AgentBackend.js";
-import { extractCodeBlock, parseFileEdits, safeRelativePath } from "../agent/prompt.js";
+import { extractCodeBlock, extractCodeBlockLanguage, parseFileEdits, safeRelativePath } from "../agent/prompt.js";
 import type { Dispatch, Resolution } from "../intent/speculator.js";
 import type { Intent, IntentKind } from "../intent/types.js";
+import { CodeEditorTracker } from "./editors.js";
 
 export const PROPOSAL_SCHEME = "voicecoder-proposal";
 
@@ -72,9 +73,18 @@ export class ActionRunner implements vscode.Disposable {
   readonly onDidReport = this.reported.event;
   /** Right-hand diff documents by URI. */
   private readonly proposedTexts = new Map<string, string>();
-  private pending: Proposal | undefined;
+  private pendingProposalValue: Proposal | undefined;
+  /** The proposal awaiting approval; also drives the 適用 / 破棄 buttons and Ctrl+Alt+Enter (voiceCoder.hasProposal). */
+  private get pending(): Proposal | undefined {
+    return this.pendingProposalValue;
+  }
+  private set pending(proposal: Proposal | undefined) {
+    this.pendingProposalValue = proposal;
+    void vscode.commands.executeCommand("setContext", "voiceCoder.hasProposal", proposal !== undefined);
+  }
   private nextProposalId = 1;
   private readonly provider: vscode.Disposable;
+  private readonly editors = new CodeEditorTracker();
 
   constructor(
     private readonly agent: () => AgentBackend,
@@ -92,26 +102,35 @@ export class ActionRunner implements vscode.Disposable {
 
   /** Start the agent for a dispatch (possibly speculative). Touches nothing in the editor. */
   begin(dispatch: Dispatch): void {
-    const editor = vscode.window.activeTextEditor;
+    // Not activeTextEditor: with the Output panel focused that is the panel itself
+    const editor = this.editors.current;
     const run: Run = { dispatch, document: editor?.document, target: undefined, insertAt: undefined, output: "", live: undefined, done: Promise.resolve() };
+    const kind = dispatch.intent.kind;
+    let target: AgentTarget | undefined;
+    let context: AgentContext | undefined;
     if (editor) {
-      const { target, insertAt } = resolveTarget(editor, dispatch.intent);
+      const resolved = resolveTarget(editor, dispatch.intent);
+      target = resolved.target;
+      run.insertAt = resolved.insertAt;
+      context = { utterance: dispatch.text, documentText: editor.document.getText(), diagnostics: errorsIn(editor.document, target), signal: dispatch.signal };
+    } else if (kind === "generate" || kind === "create") {
+      // Nothing open (an empty folder, a fresh window): new code starts from nothing.
+      // The language comes from the request or the workspace; generate opens a new file for it.
+      target = { fileName: "", languageId: "", startLine: 0, endLine: 0, code: "" };
+      context = { utterance: dispatch.text, documentText: "", diagnostics: [], signal: dispatch.signal };
+    }
+    if (target && context) {
       run.target = target;
-      run.insertAt = insertAt;
-      const context: AgentContext = {
-        utterance: dispatch.text,
-        documentText: editor.document.getText(),
-        diagnostics: errorsIn(editor.document, target),
-        signal: dispatch.signal,
-      };
-      const multiFile = dispatch.intent.kind === "refactor" || dispatch.intent.kind === "create";
+      const agentTarget = target;
+      const agentContext = context;
+      const withWorkspace = kind === "refactor" || kind === "create" || !editor;
       run.done = (async () => {
-        if (multiFile) {
-          context.files = openFiles(editor.document);
-          context.workspaceFiles = await workspaceFiles();
+        if (withWorkspace) {
+          agentContext.files = openFiles(editor?.document);
+          agentContext.workspaceFiles = await workspaceFiles();
           if (dispatch.signal.aborted) return;
         }
-        for await (const text of this.agent().run(dispatch.intent, target, context)) {
+        for await (const text of this.agent().run(dispatch.intent, agentTarget, agentContext)) {
           if (dispatch.signal.aborted) return;
           run.output += text;
           run.live?.(text);
@@ -143,17 +162,23 @@ export class ActionRunner implements vscode.Disposable {
     for (const aborted of resolution.aborted) this.runs.delete(aborted);
     const dispatch = resolution.dispatch;
     if (!dispatch) {
-      this.report({ kind: null, applied: false, speculative: false, message: `コマンドが聞き取れませんでした: ${resolution.text}` });
+      const message = `コマンドを読み取れませんでした: ${resolution.text}`;
+      this.onStatus("done", message);
+      this.report({ kind: null, applied: false, speculative: false, message });
       return;
     }
     const run = this.runs.get(dispatch);
     this.runs.delete(dispatch);
-    if (!run?.document || !run.target) {
-      this.report({ kind: dispatch.intent.kind, applied: false, speculative: dispatch.speculative, message: "対象のエディタがありません" });
+    const name = label(dispatch.intent);
+    if (!run?.target) {
+      // explain / debug / refactor need code to work on
+      const message = "対象のファイルを開いてから話してください";
+      this.onStatus("error", `${name}: ${message}`);
+      void vscode.window.showWarningMessage(`Voice Coder: ${name} — ${message}`);
+      this.report({ kind: dispatch.intent.kind, applied: false, speculative: dispatch.speculative, message });
       return;
     }
 
-    const name = label(dispatch.intent);
     this.onStatus("running", name);
     if (dispatch.intent.kind === "explain") {
       // Explanations stream into the output channel from here on
@@ -167,6 +192,7 @@ export class ActionRunner implements vscode.Disposable {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.onStatus("error", `${name}: ${message}`);
+      void vscode.window.showErrorMessage(`Voice Coder: ${name} に失敗しました: ${message}`);
       this.report({ kind: dispatch.intent.kind, applied: false, speculative: dispatch.speculative, message: "エージェントが失敗しました", error: message });
       return;
     }
@@ -191,7 +217,11 @@ export class ActionRunner implements vscode.Disposable {
   }
 
   private async applyGenerate(run: Run, name: string): Promise<void> {
-    const document = run.document!;
+    if (!run.document) {
+      await this.generateIntoNewDocument(run, name);
+      return;
+    }
+    const document = run.document;
     const position = document.validatePosition(run.insertAt!);
     let code = extractCodeBlock(run.output);
     if (!code.endsWith("\n")) code += "\n";
@@ -217,6 +247,17 @@ export class ActionRunner implements vscode.Disposable {
     await this.propose(run, name, `修正案（未適用）: ${name}`, [{ uri: document.uri, create: false, originalText: full, newText }]);
   }
 
+  /** generate with no file open: the code goes into a new, unsaved file in the language the agent chose. */
+  private async generateIntoNewDocument(run: Run, name: string): Promise<void> {
+    let code = extractCodeBlock(run.output);
+    if (!code.endsWith("\n")) code += "\n";
+    const known = await vscode.languages.getLanguages();
+    const language = languageIdFor(extractCodeBlockLanguage(run.output), known);
+    const document = await vscode.workspace.openTextDocument({ content: code, language });
+    await vscode.window.showTextDocument(document);
+    this.finish(run, true, `${name}: 新しいファイル（${language}、未保存）に書きました`);
+  }
+
   /** refactor / create: the agent's `=== path ===` files, as one proposal over all of them. */
   private async proposeFileEdits(run: Run, name: string): Promise<void> {
     const edits = parseFileEdits(run.output);
@@ -224,7 +265,7 @@ export class ActionRunner implements vscode.Disposable {
       this.finish(run, false, `${name}: 変更案がありませんでした`);
       return;
     }
-    const root = vscode.workspace.getWorkspaceFolder(run.document!.uri)?.uri ?? vscode.workspace.workspaceFolders?.[0]?.uri;
+    const root = (run.document && vscode.workspace.getWorkspaceFolder(run.document.uri)?.uri) ?? vscode.workspace.workspaceFolders?.[0]?.uri;
     if (!root) {
       this.finish(run, false, `${name}: ファイルを作るにはフォルダー（ワークスペース）を開いてください`);
       return;
@@ -310,11 +351,14 @@ export class ActionRunner implements vscode.Disposable {
         edit.replace(change.uri, new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length)), change.newText);
       }
     }
-    return vscode.workspace.applyEdit(edit);
+    const applied = await vscode.workspace.applyEdit(edit);
+    if (applied) await closeProposalTabs();
+    return applied;
   }
 
   discardProposal(): void {
     this.pending = undefined;
+    void closeProposalTabs();
   }
 
   private finish(run: Run, applied: boolean, message: string): void {
@@ -328,6 +372,7 @@ export class ActionRunner implements vscode.Disposable {
 
   dispose(): void {
     this.provider.dispose();
+    this.editors.dispose();
     this.reported.dispose();
   }
 }
@@ -375,6 +420,12 @@ function errorsIn(document: vscode.TextDocument, target: AgentTarget) {
     .map((d) => ({ line: d.range.start.line, message: d.message }));
 }
 
+/** The "Voice Coder 変更案（未適用）" diff tabs: once a proposal is applied or dropped they only mislead. */
+async function closeProposalTabs(): Promise<void> {
+  const tabs = vscode.window.tabGroups.all.flatMap((group) => group.tabs).filter((tab) => tab.label.startsWith("Voice Coder "));
+  if (tabs.length) await vscode.window.tabGroups.close(tabs, true);
+}
+
 /** A file's text: the open document's (unsaved edits included), else from disk; undefined if it does not exist. */
 async function readText(uri: vscode.Uri): Promise<string | undefined> {
   const open = vscode.workspace.textDocuments.find((d) => d.uri.toString() === uri.toString());
@@ -386,8 +437,20 @@ async function readText(uri: vscode.Uri): Promise<string | undefined> {
   }
 }
 
+const FENCE_LANGUAGES: Record<string, string> = {
+  ts: "typescript", tsx: "typescriptreact", js: "javascript", jsx: "javascriptreact", py: "python", rb: "ruby",
+  rs: "rust", cs: "csharp", "c#": "csharp", "c++": "cpp", sh: "shellscript", bash: "shellscript", kt: "kotlin", golang: "go",
+};
+
+/** A VS Code language id for a code fence tag (```ts, ```python ...), plaintext when unknown. */
+export function languageIdFor(fence: string, known: string[]): string {
+  const tag = fence.trim().toLowerCase();
+  const id = FENCE_LANGUAGES[tag] ?? tag;
+  return known.includes(id) ? id : "plaintext";
+}
+
 /** The editor's other open files, as context for a change that may span files. */
-function openFiles(active: vscode.TextDocument): Array<{ path: string; text: string }> {
+function openFiles(active: vscode.TextDocument | undefined): Array<{ path: string; text: string }> {
   return vscode.workspace.textDocuments
     .filter((d) => d !== active && d.uri.scheme === "file" && d.getText().length <= MAX_CONTEXT_FILE_CHARS)
     .slice(0, MAX_CONTEXT_FILES)

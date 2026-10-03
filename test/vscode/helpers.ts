@@ -11,7 +11,8 @@ export type Step = { partial: string; atMs: number } | { final: string; atMs: nu
 export class TimedScriptBackend implements SttBackend {
   private readonly events = new SttEvents();
   private timers: NodeJS.Timeout[] = [];
-  private finished!: Promise<void>;
+  private lastFinalOut: Promise<void> = Promise.resolve();
+  private onLastFinal: () => void = () => {};
 
   constructor(private readonly script: Step[]) {}
 
@@ -24,21 +25,24 @@ export class TimedScriptBackend implements SttBackend {
   }
 
   async start(): Promise<void> {
-    const last = Math.max(0, ...this.script.map((s) => s.atMs));
-    this.finished = new Promise((resolve) => this.timers.push(setTimeout(resolve, last + 1)));
+    const finals = this.script.filter((s) => "final" in s);
+    const lastFinal = finals.at(-1);
+    this.lastFinalOut = new Promise((resolve) => (this.onLastFinal = resolve));
+    if (!lastFinal) this.onLastFinal();
     for (const step of this.script) {
       this.timers.push(
         setTimeout(() => {
           if ("partial" in step) this.events.emitPartial({ text: step.partial, atMs: step.atMs });
           else this.events.emitFinal({ text: step.final, atMs: step.atMs });
+          if (step === lastFinal) this.onLastFinal();
         }, step.atMs),
       );
     }
   }
 
-  /** Like a real backend, stop() returns once the last final is out. */
+  /** Like a real backend, stop() returns once the last final is out; steps after it are dropped. */
   async stop(): Promise<void> {
-    await this.finished;
+    await this.lastFinalOut;
     this.timers.forEach(clearTimeout);
   }
 }

@@ -84,6 +84,7 @@ export class VoiceController implements vscode.Disposable {
     } finally {
       if (this.stt === stt) this.stt = undefined;
     }
+    this.status.settled();
   }
 
   private fail(error: unknown): void {

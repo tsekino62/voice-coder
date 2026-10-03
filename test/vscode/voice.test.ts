@@ -4,7 +4,7 @@ import { loadSdk } from "../../src/agent/ClaudeAgentBackend.js";
 import { microphoneDevices } from "../../src/audio/microphone.js";
 import { PROPOSAL_SCHEME } from "../../src/extension/actions.js";
 import type { VoiceCoderApi } from "../../src/extension/extension.js";
-import { agentFor, getApi, settle, numberedLines, openDocument, sleep, speak, usingRealAgent } from "./helpers.js";
+import { agentFor, getApi, nextReport, settle, numberedLines, openDocument, sleep, speak, TimedScriptBackend, usingRealAgent } from "./helpers.js";
 
 describe("Voice Coder in VS Code", () => {
   let api: VoiceCoderApi;
@@ -53,6 +53,84 @@ describe("Voice Coder in VS Code", () => {
     } finally {
       listener.dispose();
     }
+  });
+
+  it("keeps the result in the status bar when the command finished before the key was released", async () => {
+    // The usual case with a real mic: Soniox closes the utterance after a second of
+    // silence and the command is done before the speaker presses the key again
+    const { agent } = agentFor();
+    api.setAgentBackend(agent);
+    const editor = await openDocument("// fizzbuzz goes below\n");
+    const end = editor.document.lineAt(editor.document.lineCount - 1).range.end;
+    editor.selection = new vscode.Selection(end, end);
+    api.setSttFactory(() => new TimedScriptBackend([
+      { partial: "FizzBuzzを作っ", atMs: 100 },
+      { final: "FizzBuzzを作って。", atMs: 300 },
+      { partial: "", atMs: 60_000 }, // keeps listening until stop()
+    ]));
+    const report = nextReport(api);
+    await vscode.commands.executeCommand("voiceCoder.toggleListening");
+    assert.equal((await report).kind, "generate");
+    await vscode.commands.executeCommand("voiceCoder.toggleListening");
+    assert.ok(api.statusBarItem.text.startsWith("$(check)"), api.statusBarItem.text);
+    assert.equal(api.listening, false);
+  });
+
+  it("with no file open, generate writes into a new file in the language the agent chose", async () => {
+    const { agent, mock } = agentFor(() => "```python\nfor i in range(1, 101):\n    print(i)\n```");
+    api.setAgentBackend(agent);
+    await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+    assert.equal(vscode.window.visibleTextEditors.filter((e) => ["file", "untitled"].includes(e.document.uri.scheme)).length, 0);
+
+    const report = await speak(api, [
+      { partial: "PythonでFizzBuzzを作っ", atMs: 100 },
+      { final: "PythonでFizzBuzzを作って。", atMs: 500 },
+    ]);
+
+    assert.equal(report.kind, "generate");
+    assert.equal(report.applied, true, report.message);
+    const editor = vscode.window.activeTextEditor;
+    assert.ok(editor, "a new editor is open");
+    assert.equal(editor.document.isUntitled, true);
+    assert.equal(editor.document.languageId, "python");
+    if (mock) assert.match(editor.document.getText(), /range\(1, 101\)/);
+  });
+
+  it("with no file open, explain asks for a file instead of doing nothing", async () => {
+    const { agent } = agentFor();
+    api.setAgentBackend(agent);
+    await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+
+    const report = await speak(api, [{ final: "10行目から20行目を解説して。", atMs: 300 }]);
+
+    assert.equal(report.kind, "explain");
+    assert.equal(report.applied, false);
+    assert.match(report.message, /ファイルを開いて/);
+    assert.ok(api.statusBarItem.text.startsWith("$(error)"), api.statusBarItem.text);
+  });
+
+  it("writes into the code file even while the Output panel has the focus", async () => {
+    const { agent } = agentFor();
+    api.setAgentBackend(agent);
+    const editor = await openDocument("// fizzbuzz goes below\n");
+    const end = editor.document.lineAt(editor.document.lineCount - 1).range.end;
+    editor.selection = new vscode.Selection(end, end);
+    const before = editor.document.getText();
+    // Put the focus on the Output panel, as after reading an explanation
+    await vscode.commands.executeCommand("workbench.action.output.toggleOutput");
+    await vscode.commands.executeCommand("workbench.panel.output.focus");
+    await sleep(300);
+
+    const report = await speak(api, [
+      { partial: "FizzBuzzを作っ", atMs: 100 },
+      { final: "FizzBuzzを作って。", atMs: 500 },
+    ]);
+
+    assert.equal(report.kind, "generate");
+    assert.equal(report.applied, true, report.message);
+    assert.ok(editor.document.getText().startsWith(before) && editor.document.getText() !== before, "inserted into the code file");
+    const output = vscode.workspace.textDocuments.filter((d) => d.uri.scheme === "output");
+    for (const doc of output) assert.ok(!doc.getText().includes("for (") || doc.getText() === "", "nothing written to the Output panel");
   });
 
   it("explain leaves the document untouched", async () => {

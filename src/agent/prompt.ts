@@ -24,6 +24,19 @@ export function buildPrompt(intent: Intent, target: AgentTarget, context: AgentC
   const where = `${target.fileName} (${target.languageId})`;
   switch (intent.kind) {
     case "generate":
+      if (!target.fileName) {
+        // No file open: the code becomes a new file
+        return {
+          system: SYSTEM,
+          user: [
+            `Request (spoken): ${context.utterance}`,
+            "No file is open; the code will become a new file.",
+            ...(context.workspaceFiles?.length ? ["Files in the workspace (use its language):", ...context.workspaceFiles.slice(0, 100).map((f) => `- ${f}`)] : []),
+            "Use the language the user names; otherwise the workspace's main language; otherwise the most fitting one.",
+            "Reply with exactly one fenced code block whose opening fence names the language (e.g. ```python), containing the whole file. No explanation.",
+          ].join("\n"),
+        };
+      }
       return {
         system: SYSTEM,
         user: [
@@ -98,6 +111,11 @@ export function buildPrompt(intent: Intent, target: AgentTarget, context: AgentC
 export function extractCodeBlock(reply: string): string {
   const match = /```[^\n]*\n([\s\S]*?)\n?```/.exec(reply);
   return match ? match[1] : reply.trim();
+}
+
+/** The language tag of the first fenced code block (```python → "python"), or "". */
+export function extractCodeBlockLanguage(reply: string): string {
+  return /```([^\n`]*)\n/.exec(reply)?.[1]?.trim() ?? "";
 }
 
 /** One file in an agent's reply to refactor / create: its complete new content. */

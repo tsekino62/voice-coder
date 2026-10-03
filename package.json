@@ -28,13 +28,15 @@
       },
       {
         "command": "voiceCoder.applyProposal",
-        "title": "修正案を適用",
-        "category": "Voice Coder"
+        "title": "変更案を適用",
+        "category": "Voice Coder",
+        "icon": "$(check)"
       },
       {
         "command": "voiceCoder.discardProposal",
-        "title": "修正案を破棄",
-        "category": "Voice Coder"
+        "title": "変更案を破棄",
+        "category": "Voice Coder",
+        "icon": "$(discard)"
       },
       {
         "command": "voiceCoder.selectMicrophone",
@@ -47,6 +49,12 @@
         "command": "voiceCoder.toggleListening",
         "key": "ctrl+alt+v",
         "mac": "cmd+alt+v"
+      },
+      {
+        "command": "voiceCoder.applyProposal",
+        "key": "ctrl+alt+enter",
+        "mac": "cmd+alt+enter",
+        "when": "voiceCoder.hasProposal"
       }
     ],
     "configuration": {
@@ -117,6 +125,30 @@
           "scope": "machine"
         }
       }
+    },
+    "menus": {
+      "editor/title": [
+        {
+          "command": "voiceCoder.applyProposal",
+          "when": "voiceCoder.hasProposal",
+          "group": "navigation@1"
+        },
+        {
+          "command": "voiceCoder.discardProposal",
+          "when": "voiceCoder.hasProposal",
+          "group": "navigation@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "voiceCoder.applyProposal",
+          "when": "voiceCoder.hasProposal"
+        },
+        {
+          "command": "voiceCoder.discardProposal",
+          "when": "voiceCoder.hasProposal"
+        }
+      ]
     }
   },
   "scripts": {

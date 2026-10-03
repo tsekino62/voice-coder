@@ -14,7 +14,7 @@
 - **explain**: 出力パネル「Voice Coder」に説明を流す。ドキュメントは変えない。
 - **generate**: カーソル位置に 1 回の `WorkspaceEdit` で挿入する。`Ctrl+Z` 1 回で元に戻る。
 - **debug**: 対象範囲のエラー（`getDiagnostics`）とコードから修正案を作り、diff で表示する。
-  「適用」を押すか `Voice Coder: 修正案を適用` を実行するまで書き込まない。
+  差分表示の右上の ✓ ボタン、`Ctrl+Alt+Enter`、通知の「適用」のどれかで承認するまで書き込まない。
 - **refactor**（「リファクタして」「共通化して」「似たクラスを抽象クラスにまとめて」）: 開いているファイルと
   ワークスペースのファイル一覧を LLM に渡し、新しいファイルの作成と既存ファイルの書き換えを複数ファイルの diff で表示する。
   承認すると 1 回の `WorkspaceEdit` でまとめて書き込む。関係するファイルは開いておくと案に含まれる。
@@ -89,8 +89,8 @@ npm run mic
 | キー | コマンド |
 |---|---|
 | `Ctrl+Alt+V` / `Cmd+Alt+V` | `Voice Coder: 音声入力の開始/停止`（`voiceCoder.toggleListening`） |
-| （なし） | `Voice Coder: 修正案を適用`（`voiceCoder.applyProposal`。debug / refactor / create の変更案） |
-| （なし） | `Voice Coder: 修正案を破棄`（`voiceCoder.discardProposal`） |
+| `Ctrl+Alt+Enter`（変更案があるとき） | `Voice Coder: 変更案を適用`（`voiceCoder.applyProposal`。差分表示の右上の ✓ ボタンでも同じ） |
+| （なし） | `Voice Coder: 変更案を破棄`（`voiceCoder.discardProposal`。差分表示の右上のボタンでも同じ） |
 | （なし） | `Voice Coder: マイクを選ぶ`（`voiceCoder.selectMicrophone`） |
 
 変えるときは「キーボード ショートカット」で `voiceCoder.toggleListening` を探す。ステータスバー左のマイクアイコン「Voice」をクリックしても同じ。

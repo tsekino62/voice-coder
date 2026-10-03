@@ -12,6 +12,8 @@ export class StatusView implements vscode.Disposable {
   private readonly changed = new vscode.EventEmitter<string>();
   /** Fires with the item's new text on every change. */
   readonly onDidChange = this.changed.event;
+  /** The latest command's state (running / done / error) since listening started. */
+  private outcome: { text: string; tooltip: string } | undefined;
 
   constructor() {
     this.item.command = "voiceCoder.toggleListening";
@@ -24,6 +26,7 @@ export class StatusView implements vscode.Disposable {
   }
 
   listening(): void {
+    this.outcome = undefined;
     this.set("$(record) 聞いています…", "Voice Coder: もう一度押すと停止");
   }
 
@@ -36,16 +39,31 @@ export class StatusView implements vscode.Disposable {
   }
 
   running(label: string): void {
-    this.set(`$(sync~spin) ${label}`, "Voice Coder: 実行中");
+    this.setOutcome(`$(sync~spin) ${label}`, "Voice Coder: 実行中");
   }
 
   done(label: string): void {
-    this.set(`$(check) ${label}`, "Voice Coder");
+    this.setOutcome(`$(check) ${label}`, "Voice Coder");
   }
 
   error(message: string): void {
     // The start of an error says what failed; the tooltip has the rest
-    this.set(`$(error) ${message.length > MAX_TEXT ? message.slice(0, MAX_TEXT) + "…" : message}`, message);
+    this.setOutcome(`$(error) ${message.length > MAX_TEXT ? message.slice(0, MAX_TEXT) + "…" : message}`, message);
+  }
+
+  /**
+   * Listening has ended: show how the command went, or idle if there was none.
+   * (The final often arrives, and the command finishes, before the key is pressed
+   * again; the stop must not leave the "waiting" spinner over that result.)
+   */
+  settled(): void {
+    if (this.outcome) this.set(this.outcome.text, this.outcome.tooltip);
+    else this.idle();
+  }
+
+  private setOutcome(text: string, tooltip: string): void {
+    this.outcome = { text, tooltip };
+    this.set(text, tooltip);
   }
 
   private set(text: string, tooltip: string): void {
