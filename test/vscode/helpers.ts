@@ -48,8 +48,8 @@ export class TimedScriptBackend implements SttBackend {
 }
 
 export async function getApi(): Promise<VoiceCoderApi> {
-  const extension = vscode.extensions.getExtension<VoiceCoderApi>("tsekino.voice-coder");
-  if (!extension) throw new Error("extension tsekino.voice-coder not found");
+  const extension = vscode.extensions.getExtension<VoiceCoderApi>("tsekino62.voice-coder");
+  if (!extension) throw new Error("extension tsekino62.voice-coder not found");
   return extension.activate();
 }
 

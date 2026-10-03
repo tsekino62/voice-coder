@@ -66,7 +66,7 @@ export interface TimelineEntry {
 
 export async function run(): Promise<void> {
   const api = await getApi();
-  const extensionPath = vscode.extensions.getExtension("tsekino.voice-coder")!.extensionPath;
+  const extensionPath = vscode.extensions.getExtension("tsekino62.voice-coder")!.extensionPath;
   const root = vscode.workspace.workspaceFolders![0].uri;
   const settings = () => vscode.workspace.getConfiguration("voiceCoder");
   const timeline: TimelineEntry[] = [];

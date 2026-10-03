@@ -11,7 +11,7 @@ const live = Boolean(process.env.SONIOX_API_KEY && process.env.OPENAI_API_KEY);
 describe("the real pipeline inside VS Code (a WAV in place of the microphone)", () => {
   let api: VoiceCoderApi;
   const settings = () => vscode.workspace.getConfiguration("voiceCoder");
-  const audio = (file: string) => join(vscode.extensions.getExtension("tsekino.voice-coder")!.extensionPath, "test", "audio", file);
+  const audio = (file: string) => join(vscode.extensions.getExtension("tsekino62.voice-coder")!.extensionPath, "test", "audio", file);
 
   before(async function () {
     if (!live) this.skip();

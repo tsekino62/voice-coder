@@ -3,7 +3,7 @@
   "displayName": "Voice Compare Driver (recording only)",
   "version": "0.0.1",
   "private": true,
-  "publisher": "tsekino",
+  "publisher": "tsekino62",
   "engines": { "vscode": "^1.100.0" },
   "main": "./dist/driver.cjs",
   "activationEvents": ["onStartupFinished"]

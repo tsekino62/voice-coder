@@ -165,7 +165,7 @@ async function compare(job: Job): Promise<void> {
       await settled(edits.seen, 5000, 120_000, audioStart);
     } else {
       await vscode.commands.executeCommand("workbench.action.closeAuxiliaryBar").then(undefined, () => {});
-      const extension = vscode.extensions.getExtension("tsekino.voice-coder")!;
+      const extension = vscode.extensions.getExtension("tsekino62.voice-coder")!;
       const api = (await extension.activate()) as { setSttFactory(f: (() => unknown) | undefined): void };
       const cable = (await microphoneDevices()).findIndex((d) => /^CABLE Output/i.test(d));
       api.setSttFactory(() => new SonioxBackend(new MicrophoneSource({ deviceIndex: cable }), { apiKey: job.sonioxKey!, maxEndpointDelayMs: 1000 }));
