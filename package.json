@@ -1,6 +1,11 @@
 {
   "name": "voice-coder",
   "displayName": "Voice Coder",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#1e1b4b",
+    "theme": "dark"
+  },
   "version": "0.1.0",
   "description": "日本語の音声で generate / explain / debug を指示する VS Code 拡張",
   "publisher": "tsekino62",

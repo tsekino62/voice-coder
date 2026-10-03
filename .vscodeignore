@@ -4,6 +4,7 @@
 !package.json
 !README.md
 !LICENSE
+!media/icon.png
 !dist/extension.cjs
 !node_modules/@anthropic-ai/claude-agent-sdk/package.json
 !node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
