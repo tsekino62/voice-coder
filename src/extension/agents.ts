@@ -12,6 +12,18 @@ export function copilotModels(select: SelectModels = vscode.lm.selectChatModels)
 }
 
 /**
+ * Without a configured model: Copilot's "Auto" (what Copilot Chat uses by default),
+ * else the first model that is not one of its small utility models.
+ */
+export function preferredModel(models: vscode.LanguageModelChat[]): vscode.LanguageModelChat {
+  return (
+    models.find((m) => m.name === "Auto") ??
+    models.find((m) => !/utility|mini|nano/i.test(`${m.family} ${m.name}`)) ??
+    models[0]
+  );
+}
+
+/**
  * GitHub Copilot's models through VS Code's Language Model API: no API key of
  * our own, the user's Copilot plan pays. VS Code asks the user once whether
  * this extension may use them.
@@ -23,7 +35,7 @@ export class CopilotAgentBackend implements AgentBackend {
     if (context.signal.aborted) return;
     const models = await copilotModels(this.options.select);
     if (models.length === 0) throw new Error(t("copilotUnavailable"));
-    const model = (this.options.family && models.find((m) => m.family === this.options.family || m.id === this.options.family)) || models[0];
+    const model = (this.options.family && models.find((m) => m.family === this.options.family || m.id === this.options.family)) || preferredModel(models);
 
     const prompt = buildPrompt(intent, target, context);
     const cancel = new vscode.CancellationTokenSource();

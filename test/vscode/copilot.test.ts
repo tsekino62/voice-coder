@@ -63,6 +63,17 @@ describe("Copilot models through the Language Model API", () => {
     assert.equal(b.seen.cancelled, true);
   });
 
+  it("prefers Copilot's Auto over its small utility models when none is configured", async () => {
+    const mini = fakeModel("gpt-4o-mini", ["mini"]);
+    const utility = fakeModel("copilot-utility", ["utility"]);
+    const auto = fakeModel("claude-fable-5.1", ["auto"]);
+    (auto.model as { name: string }).name = "Auto";
+    const backend = new CopilotAgentBackend({ select: async () => [mini.model, utility.model, auto.model] });
+    let reply = "";
+    for await (const text of backend.run(parseIntent("FizzBuzzを作って")!, target, context())) reply += text;
+    assert.equal(reply, "auto");
+  });
+
   it("says so when there is no Copilot", async () => {
     const backend = new CopilotAgentBackend({ select: async () => [] });
     await assert.rejects(async () => {

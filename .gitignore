@@ -5,3 +5,7 @@ out/
 *.vsix
 .env
 demo/*.mp4
+tools/compare/job.json
+tools/compare/*.json.out
+tools/compare/commands.json
+tools/compare/dist/

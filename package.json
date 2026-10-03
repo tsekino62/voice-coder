@@ -208,7 +208,8 @@
     "jev:compare": "tsx scripts/jev_compare.ts",
     "mic": "tsx scripts/mic.ts",
     "stt:compare": "tsx scripts/stt_compare.ts",
-    "demo": "tsx scripts/demo/record_demo.ts"
+    "demo": "tsx scripts/demo/record_demo.ts",
+    "compare:video": "tsx scripts/demo/record_compare.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.288",
@@ -218,6 +219,7 @@
     "ws": "^8.22.0"
   },
   "devDependencies": {
+    "@picovoice/pvspeaker-node": "^1.0.3",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.19.43",
     "@types/vscode": "^1.100.0",
