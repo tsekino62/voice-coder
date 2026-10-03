@@ -20,6 +20,7 @@ import type { TimelineEntry } from "../../test/demo/demo.js";
 
 const ROOT = resolve(import.meta.dirname, "..", "..");
 const WINDOW_TITLE = "Voice Coder Demo";
+const TAIL_CUT_S = 1;
 const FONT = "C\\:/Windows/Fonts/YuGothB.ttc";
 
 const { values: opts } = parseArgs({
@@ -181,7 +182,12 @@ function compose(ffmpeg: string, raw: string, out: string, timeline: TimelineEnt
     : "";
   const filterScript = join(work, "filter.txt");
   writeFileSync(filterScript, [video, audio].filter(Boolean).join(";"), "utf8");
-  const args = ["-y", ...inputs, "-/filter_complex", filterScript, "-map", "[v]", ...(timeline.length ? ["-map", "[a]", "-c:a", "aac", "-b:a", "160k"] : []), "-c:v", "libx264", "-preset", "medium", "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart", out];
+  // The window closes before the recorder stops: drop the last second, where the desktop shows through
+  const probe = spawnSync(ffmpeg, ["-hide_banner", "-i", raw], { encoding: "utf8" }).stderr;
+  const [, h, m, sec] = /Duration: (\d+):(\d+):([\d.]+)/.exec(probe) ?? [];
+  const duration = h === undefined ? undefined : Number(h) * 3600 + Number(m) * 60 + Number(sec);
+  const trim = duration ? ["-t", (duration - TAIL_CUT_S).toFixed(3)] : [];
+  const args = ["-y", ...inputs, "-/filter_complex", filterScript, ...trim, "-map", "[v]", ...(timeline.length ? ["-map", "[a]", "-c:a", "aac", "-b:a", "160k"] : []), "-c:v", "libx264", "-preset", "medium", "-crf", "22", "-pix_fmt", "yuv420p", "-movflags", "+faststart", out];
   const result = spawnSync(ffmpeg, args, { encoding: "utf8" });
   if (result.status !== 0) throw new Error(`ffmpeg (compose) failed:\n${result.stderr.slice(-3000)}`);
 }
