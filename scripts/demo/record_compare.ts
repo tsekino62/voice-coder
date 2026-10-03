@@ -91,10 +91,12 @@ async function main(): Promise<void> {
   if (!sonioxKey) throw new Error("SONIOX_API_KEY is not set");
   buildDriver();
 
-  const work = mkdtempSync(join(tmpdir(), "voice-coder-compare-"));
-  const folder = join(work, "test_coder");
-  mkdirSync(folder);
+  // Inside a folder trusted once (trust carries over to subfolders), and new each run: VS Code will
+  // not open a folder that another window already has open
+  const folder = join(ROOT, "demo", "compare-workspace", "test_coder", "runs", new Date().toISOString().replace(/[:.]/g, "-"), "test_coder");
+  mkdirSync(folder, { recursive: true });
   writeFileSync(join(folder, "fizzbuzz.py"), "");
+  const work = mkdtempSync(join(tmpdir(), "voice-coder-compare-"));
   const resultPath = join(work, "result.json");
   const raw = join(work, "raw.mkv");
   const jobPath = join(DRIVER, "job.json");
@@ -118,7 +120,10 @@ async function main(): Promise<void> {
   }
 
   const result = JSON.parse(readFileSync(resultPath, "utf8")) as { results?: PhaseResult[]; error?: string };
-  if (!result.results) throw new Error(result.error ?? "no result");
+  if (!result.results) {
+    if (result.error?.includes("UNTRUSTED")) throw new Error(`VS Code でフォルダー ${folder} を一度開いて「信頼する」を選んでから、もう一度実行してください`);
+    throw new Error(result.error ?? "no result");
+  }
   for (const r of result.results) {
     const s = (ms?: number) => (ms ? `${((ms - r.speechEnd) / 1000).toFixed(2)} s` : "-");
     console.log(`${r.phase.padEnd(10)} sent ${s(r.sentAt)}  first edit ${s(r.firstEdit)}  last edit ${s(r.lastEdit)}`);

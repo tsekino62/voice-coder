@@ -75,7 +75,16 @@ export interface Recording {
 
 /** Records the screen area of the window whose title contains `part`. */
 export function startRecording(ffmpeg: string, path: string, part: string): Recording {
-  const rect = windowRect(part);
+  // The title changes while the window starts up: try a few times
+  let rect: ReturnType<typeof windowRect> | undefined;
+  for (let attempt = 1; !rect; attempt++) {
+    try {
+      rect = windowRect(part);
+    } catch (error) {
+      if (attempt >= 10) throw error;
+      spawnSync("powershell", ["-NoProfile", "-Command", "Start-Sleep -Milliseconds 500"]);
+    }
+  }
   console.log(`capturing ${rect.width}x${rect.height} at ${rect.x},${rect.y}`);
   const child = spawn(
     ffmpeg,

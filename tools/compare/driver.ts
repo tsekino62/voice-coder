@@ -128,6 +128,9 @@ async function emptyFile(document: vscode.TextDocument): Promise<void> {
 }
 
 async function compare(job: Job): Promise<void> {
+  // An untrusted folder makes VS Code ask mid-run, and Copilot waits for the answer: not a fair race
+  if (!vscode.workspace.workspaceFolders?.length) throw new Error("NOFOLDER: the window opened without the folder");
+  if (!vscode.workspace.isTrusted) throw new Error("UNTRUSTED: open this folder once and trust it, then record again");
   const root = vscode.workspace.workspaceFolders![0].uri;
   const document = await vscode.workspace.openTextDocument(vscode.Uri.joinPath(root, job.file ?? "fizzbuzz.py"));
   const speechEndMs = (speechBounds(readWavPcm(job.wav!))?.end ?? 0) * 1000;
@@ -158,6 +161,7 @@ async function compare(job: Job): Promise<void> {
       await sleep(300);
       await vscode.commands.executeCommand("workbench.action.chat.submit");
       sentAt = Date.now();
+      setTimeout(() => void vscode.commands.executeCommand("notifications.clearAll"), 1500);
       await settled(edits.seen, 5000, 120_000, audioStart);
     } else {
       await vscode.commands.executeCommand("workbench.action.closeAuxiliaryBar").then(undefined, () => {});

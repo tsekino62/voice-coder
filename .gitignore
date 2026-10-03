@@ -9,3 +9,5 @@ tools/compare/job.json
 tools/compare/*.json.out
 tools/compare/commands.json
 tools/compare/dist/
+demo/compare-workspace/
+demo/*.json
