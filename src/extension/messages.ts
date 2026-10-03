@@ -55,6 +55,17 @@ const MESSAGES = {
   micDefault: { ja: "システムの既定のマイク", en: "System default microphone" },
   micInUse: { ja: "使用中", en: "in use" },
   micPlaceholder: { ja: "音声入力に使うマイク", en: "Microphone for voice input" },
+  copilotUnavailable: {
+    ja: "Copilot のモデルが使えません（GitHub Copilot にサインインしているか確認してください）",
+    en: "No Copilot model is available (check that you are signed in to GitHub Copilot)",
+  },
+  noAgent: {
+    ja: "コマンドを実行する LLM がありません。GitHub Copilot にサインインするか、OPENAI_API_KEY を設定してください",
+    en: "No LLM to carry out the command: sign in to GitHub Copilot or set OPENAI_API_KEY",
+  },
+  copilotJustification: { ja: "Voice Coder が音声で指示されたコードの作成・説明・修正に使います", en: "Voice Coder uses it to write, explain and fix code you ask for by voice" },
+  copilotModelPlaceholder: { ja: "Voice Coder が使う Copilot のモデル", en: "Copilot model for Voice Coder" },
+  copilotModelSet: { ja: "Voice Coder: Copilot のモデルを「{0}」にしました", en: "Voice Coder: Copilot model set to \"{0}\"" },
   micSet: { ja: "Voice Coder: マイクを「{0}」にしました", en: "Voice Coder: microphone set to \"{0}\"" },
 } satisfies Record<string, Record<Language, string>>;
 

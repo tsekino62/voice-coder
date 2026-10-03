@@ -34,12 +34,14 @@
 
 VS Code は起動したときの環境変数を引き継ぐ。設定してから VS Code を起動し直すこと（ターミナルから `code .` で起動するのが確実）。
 
+**GitHub Copilot に入っていれば、必要なキーは `SONIOX_API_KEY` だけ。**
+
 | 変数 | 用途 | 必須 |
 |---|---|---|
 | `SONIOX_API_KEY` | 音声認識（Soniox `stt-rt-v5`） | はい |
-| `OPENAI_API_KEY` | 既定の LLM（OpenAI Responses API、`voiceCoder.agent` が `openai` のとき） | はい（既定） |
-| `ANTHROPIC_API_KEY` | `voiceCoder.agent` を `claude` にしたとき（Claude Agent SDK） | `claude` のとき |
-| `TYPESAFE_API_KEY` | キーワードの無い言い回しを jev で読む（`voiceCoder.intentReader` が `hybrid` / `jev`）。無ければ正規表現のみ | 推奨 |
+| `OPENAI_API_KEY` | LLM。Copilot が使えないときの代わり（`voiceCoder.agent` が `auto` / `openai`） | Copilot が無いときだけ |
+| `ANTHROPIC_API_KEY` | `voiceCoder.agent` を `claude` にしたとき（Claude Agent SDK） | `claude` のときだけ |
+| `TYPESAFE_API_KEY` | キーワードの無い言い回し（「FizzBuzzがほしい」など）を jev で読む。無くてもキーワードで動く | いいえ（任意） |
 | `ELEVENLABS_API_KEY` | テスト音声の再生成（`npm run gen:audio`）だけで使う | いいえ |
 
 Windows で恒久的に設定する例:
@@ -66,8 +68,9 @@ setx OPENAI_API_KEY "..."
 |---|---|---|
 | `voiceCoder.micDevice` | `null` | 入力デバイスの番号（「マイクを選ぶ」で設定）。`null` でシステムの既定 |
 | `voiceCoder.envFile` | 空 | API キーを書いた `.env` のパス |
-| `voiceCoder.agent` | `openai` | コマンドを実行する LLM。`openai` か `claude` |
-| `voiceCoder.model` | 空 | モデル名。空なら `openai` は `gpt-6.1-sol`、`claude` は `claude-opus-5-5` |
+| `voiceCoder.agent` | `auto` | コマンドを実行する LLM。`auto`（Copilot が使えれば Copilot、無ければ OpenAI）、`copilot`、`openai`、`claude` |
+| `voiceCoder.copilotModel` | 空 | Copilot のモデル（「Voice Coder: Copilot のモデルを選ぶ」で選ぶ）。空なら VS Code が最初に返すもの |
+| `voiceCoder.model` | 空 | OpenAI / Claude のモデル名。空なら `openai` は `gpt-6.1-sol`、`claude` は `claude-opus-5-5` |
 | `voiceCoder.intentReader` | `hybrid` | 発話から意図を読む方法。`hybrid`（キーワードで読めなければ jev）、`regex`、`jev`。比較は `docs/JEV.md` |
 | `voiceCoder.claudeCodePath` | 空 | `claude` のときの Claude Code 実行ファイル。空なら SDK 同梱のもの、なければ PATH 上の `claude` |
 | `voiceCoder.stopAfterUtterance` | `true` | 指示が確定したら自動で聞き取りを止める |
@@ -101,6 +104,7 @@ npm run mic
 | `Ctrl+Alt+Enter`（変更案があるとき） | `Voice Coder: 変更案を適用`（`voiceCoder.applyProposal`。差分表示の右上の ✓ ボタンでも同じ） |
 | （なし） | `Voice Coder: 変更案を破棄`（`voiceCoder.discardProposal`。差分表示の右上のボタンでも同じ） |
 | （なし） | `Voice Coder: マイクを選ぶ`（`voiceCoder.selectMicrophone`） |
+| （なし） | `Voice Coder: Copilot のモデルを選ぶ`（`voiceCoder.selectCopilotModel`） |
 
 変えるときは「キーボード ショートカット」で `voiceCoder.toggleListening` を探す。ステータスバー左のマイクアイコン「Voice」をクリックしても同じ。
 

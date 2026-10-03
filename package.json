@@ -42,6 +42,11 @@
         "command": "voiceCoder.selectMicrophone",
         "title": "マイクを選ぶ",
         "category": "Voice Coder"
+      },
+      {
+        "command": "voiceCoder.selectCopilotModel",
+        "title": "Copilot のモデルを選ぶ",
+        "category": "Voice Coder"
       }
     ],
     "keybindings": [
@@ -72,20 +77,24 @@
         "voiceCoder.agent": {
           "type": "string",
           "enum": [
+            "auto",
+            "copilot",
             "openai",
             "claude"
           ],
-          "default": "openai",
+          "default": "auto",
           "enumDescriptions": [
+            "GitHub Copilot が使えれば Copilot、使えなければ OpenAI（OPENAI_API_KEY）",
+            "GitHub Copilot のモデル（VS Code の Language Model API。API キー不要、Copilot のプランで使う）",
             "OpenAI Responses API（OPENAI_API_KEY）",
-            "Claude Agent SDK（ANTHROPIC_API_KEY）"
+            "Claude Agent SDK（ANTHROPIC_API_KEY か Claude Code のログイン）"
           ],
           "description": "コマンドを実行する LLM。"
         },
         "voiceCoder.model": {
           "type": "string",
           "default": "",
-          "description": "モデル名。空なら openai は gpt-6.1-sol、claude は claude-opus-5-5。"
+          "description": "OpenAI / Claude のモデル名。空なら openai は gpt-6.1-sol、claude は claude-opus-5-5。Copilot は voiceCoder.copilotModel で選ぶ。"
         },
         "voiceCoder.claudeCodePath": {
           "type": "string",
@@ -110,7 +119,7 @@
             "正規表現（キーワード）のみ。待ち時間なし",
             "すべて jev（typesafe.ai）。1 回 0.2 秒ほど"
           ],
-          "description": "発話から generate / explain / debug を読む方法。行範囲はどれでも正規表現で読む。比較は docs/JEV.md。"
+          "description": "発話から意図を読む方法。行範囲はどれでも正規表現で読む。jev は任意で、TYPESAFE_API_KEY が無ければ hybrid はキーワードだけで動く。比較は docs/JEV.md。"
         },
         "voiceCoder.envFile": {
           "type": "string",
@@ -154,6 +163,11 @@
           "type": "boolean",
           "default": true,
           "description": "話し終えて指示が確定したら、自動で聞き取りを止める（押す → 話す → 自動で止まる）。オフにすると、もう一度押すまで聞き続ける。"
+        },
+        "voiceCoder.copilotModel": {
+          "type": "string",
+          "default": "",
+          "description": "Copilot のモデル（family か id。コマンド「Voice Coder: Copilot のモデルを選ぶ」で選べる）。空なら VS Code が最初に返すモデル。"
         }
       }
     },

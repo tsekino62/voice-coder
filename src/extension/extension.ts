@@ -13,6 +13,7 @@ import { SonioxBackend } from "../stt/SonioxBackend.js";
 import type { SttBackend } from "../stt/SttBackend.js";
 import { ActionRunner, type ActionReport, type Proposal } from "./actions.js";
 import { VoiceController } from "./controller.js";
+import { AutoAgentBackend, CopilotAgentBackend, copilotModels } from "./agents.js";
 import { readKeys, type KeyName } from "./keys.js";
 import { setMessageLanguageSetting, t } from "./messages.js";
 import { StatusView } from "./status.js";
@@ -34,7 +35,8 @@ function config() {
   const c = vscode.workspace.getConfiguration("voiceCoder");
   return {
     micDevice: c.get<number | null>("micDevice") ?? null,
-    agent: c.get<"openai" | "claude">("agent") ?? "openai",
+    agent: c.get<"auto" | "copilot" | "openai" | "claude">("agent") ?? "auto",
+    copilotModel: c.get<string>("copilotModel") || "",
     model: c.get<string>("model") || "",
     claudeCodePath: c.get<string>("claudeCodePath") || "",
     maxEndpointDelayMs: c.get<number>("maxEndpointDelayMs") ?? 1000,
@@ -68,9 +70,12 @@ export function activate(context: vscode.ExtensionContext): VoiceCoderApi {
   const agent = (): AgentBackend => {
     if (agentOverride) return agentOverride;
     const c = config();
-    if (c.agent === "openai") {
-      return new OpenAIAgentBackend({ apiKey: required("OPENAI_API_KEY"), model: c.model || DEFAULT_OPENAI_MODEL });
-    }
+    const openai = () => new OpenAIAgentBackend({ apiKey: required("OPENAI_API_KEY"), model: c.model || DEFAULT_OPENAI_MODEL });
+    const copilot = () => new CopilotAgentBackend({ family: c.copilotModel || undefined });
+    if (c.agent === "openai") return openai();
+    if (c.agent === "copilot") return copilot();
+    // auto: Copilot if VS Code offers it, else OpenAI if there is a key
+    if (c.agent !== "claude") return new AutoAgentBackend(copilot, keys().OPENAI_API_KEY ? openai : undefined);
     return new ClaudeAgentBackend({
       apiKey: keys().ANTHROPIC_API_KEY,
       model: c.model || "claude-opus-5-5",
@@ -117,6 +122,7 @@ export function activate(context: vscode.ExtensionContext): VoiceCoderApi {
     vscode.commands.registerCommand("voiceCoder.applyProposal", () => actions.applyProposal()),
     vscode.commands.registerCommand("voiceCoder.discardProposal", () => actions.discardProposal()),
     vscode.commands.registerCommand("voiceCoder.selectMicrophone", selectMicrophone),
+    vscode.commands.registerCommand("voiceCoder.selectCopilotModel", selectCopilotModel),
   );
 
   return {
@@ -153,6 +159,23 @@ async function selectMicrophone(): Promise<void> {
   if (!picked) return;
   await vscode.workspace.getConfiguration("voiceCoder").update("micDevice", picked.index, vscode.ConfigurationTarget.Global);
   void vscode.window.showInformationMessage(t("micSet", picked.label));
+}
+
+/** Pick which Copilot model runs the commands; stored in voiceCoder.copilotModel. */
+async function selectCopilotModel(): Promise<void> {
+  const models = await copilotModels();
+  if (models.length === 0) {
+    void vscode.window.showWarningMessage(t("copilotUnavailable"));
+    return;
+  }
+  const current = vscode.workspace.getConfiguration("voiceCoder").get<string>("copilotModel") ?? "";
+  const picked = await vscode.window.showQuickPick(
+    models.map((m) => ({ label: m.name, description: m.family === current ? `${m.family} — ${t("micInUse")}` : m.family, family: m.family })),
+    { placeHolder: t("copilotModelPlaceholder") },
+  );
+  if (!picked) return;
+  await vscode.workspace.getConfiguration("voiceCoder").update("copilotModel", picked.family, vscode.ConfigurationTarget.Global);
+  void vscode.window.showInformationMessage(t("copilotModelSet", picked.label));
 }
 
 export function deactivate(): void {}
