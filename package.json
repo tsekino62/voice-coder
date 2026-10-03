@@ -47,8 +47,8 @@
     "keybindings": [
       {
         "command": "voiceCoder.toggleListening",
-        "key": "ctrl+alt+v",
-        "mac": "cmd+alt+v"
+        "key": "ctrl+shift+space",
+        "mac": "cmd+shift+space"
       },
       {
         "command": "voiceCoder.applyProposal",

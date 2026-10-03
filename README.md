@@ -9,7 +9,7 @@
                                                   ステータスバー                         final で確定した結果だけをエディタへ
 ```
 
-- **push-to-talk**: `Ctrl+Alt+V`（macOS は `Cmd+Alt+V`）で聞き始め、話し終えて指示が確定すると自動で止まる
+- **push-to-talk**: `Ctrl+Shift+Space`（macOS は `Cmd+Shift+Space`）で聞き始め、話し終えて指示が確定すると自動で止まる
   （設定 `voiceCoder.stopAfterUtterance`）。途中で止めるときはもう一度押す。聞いている間はステータスバーに録音中の印が出る。常時待ち受けはしない。
 - **日本語と英語**: どちらで話してもよい。説明などの返答と、ステータスバー・通知の言葉は話した言語に合わせる（設定 `voiceCoder.messageLanguage`）。
 - **先読み**: partial に意図語が出た時点でエージェントを動かし始める。final で意図が食い違えば `AbortSignal` で止め、
@@ -97,7 +97,7 @@ npm run mic
 
 | キー | コマンド |
 |---|---|
-| `Ctrl+Alt+V` / `Cmd+Alt+V` | `Voice Coder: 音声入力の開始/停止`（`voiceCoder.toggleListening`） |
+| `Ctrl+Shift+Space` / `Cmd+Shift+Space` | `Voice Coder: 音声入力の開始/停止`（`voiceCoder.toggleListening`） |
 | `Ctrl+Alt+Enter`（変更案があるとき） | `Voice Coder: 変更案を適用`（`voiceCoder.applyProposal`。差分表示の右上の ✓ ボタンでも同じ） |
 | （なし） | `Voice Coder: 変更案を破棄`（`voiceCoder.discardProposal`。差分表示の右上のボタンでも同じ） |
 | （なし） | `Voice Coder: マイクを選ぶ`（`voiceCoder.selectMicrophone`） |
