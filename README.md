@@ -162,3 +162,7 @@ npx vsce package
 | `src/intent/` | 意図パーサ（generate / explain / debug、行範囲）、jev による読み取り、先読み制御 |
 | `src/agent/` | `AgentBackend`、OpenAI（Responses API）と Claude Agent SDK の実装、モック、プロンプト |
 | `src/extension/` | VS Code 拡張（ステータスバー、push-to-talk、各アクション） |
+
+## ライセンス
+
+[MIT](LICENSE)。同梱する `@picovoice/pvrecorder-node`（マイク録音）は Apache-2.0、`@anthropic-ai/claude-agent-sdk` は各配布元のライセンスに従う。

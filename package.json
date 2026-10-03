@@ -2,10 +2,9 @@
   "name": "voice-coder",
   "displayName": "Voice Coder",
   "version": "0.1.0",
-  "private": true,
   "description": "日本語の音声で generate / explain / debug を指示する VS Code 拡張",
   "publisher": "tsekino",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/tsekino62/voice-coder.git"
