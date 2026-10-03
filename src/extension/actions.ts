@@ -4,6 +4,7 @@ import { extractCodeBlock, extractCodeBlockLanguage, parseFileEdits, safeRelativ
 import type { Dispatch, Resolution } from "../intent/speculator.js";
 import type { Intent, IntentKind } from "../intent/types.js";
 import { CodeEditorTracker } from "./editors.js";
+import { runInTerminal } from "./run.js";
 
 export const PROPOSAL_SCHEME = "voicecoder-proposal";
 
@@ -119,6 +120,12 @@ export class ActionRunner implements vscode.Disposable {
       target = { fileName: "", languageId: "", startLine: 0, endLine: 0, code: "" };
       context = { utterance: dispatch.text, documentText: "", diagnostics: [], signal: dispatch.signal };
     }
+    if (kind === "run") {
+      // Nothing for an agent to do; the command is built and run once the final confirms it
+      run.target = target;
+      this.runs.set(dispatch, run);
+      return;
+    }
     if (target && context) {
       run.target = target;
       const agentTarget = target;
@@ -170,6 +177,16 @@ export class ActionRunner implements vscode.Disposable {
     const run = this.runs.get(dispatch);
     this.runs.delete(dispatch);
     const name = label(dispatch.intent);
+    if (dispatch.intent.kind === "run" && run) {
+      this.onStatus("running", name);
+      const result = await runInTerminal(run.document, dispatch.text);
+      if (result.error) {
+        this.onStatus("error", `${name}: ${result.error}`);
+        void vscode.window.showWarningMessage(`Voice Coder: ${result.error}`);
+      }
+      this.finish(run, !result.error, result.error ?? `run: ${result.command}`);
+      return;
+    }
     if (!run?.target) {
       // explain / debug / refactor need code to work on
       const message = "対象のファイルを開いてから話してください";

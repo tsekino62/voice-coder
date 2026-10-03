@@ -169,3 +169,43 @@ describe("refactor and file creation (proposed as diffs, written on approval)", 
     assert.equal(await exists(vscode.Uri.joinPath(root(), "..", "outside.ts")), false);
   });
 });
+
+describe("run (実行して)", () => {
+  let api: VoiceCoderApi;
+
+  before(async () => {
+    api = await getApi();
+  });
+
+  afterEach(async () => {
+    await settle(api);
+    api.setSttFactory(undefined);
+    await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+  });
+
+  it("runs the current file in the Voice Coder terminal, never through an agent", async () => {
+    const mock = new MockAgentBackend();
+    api.setAgentBackend(mock);
+    await open("src/shapes/Square.ts");
+
+    const report = await speak(api, [
+      { partial: "実行し", atMs: 100 },
+      { partial: "実行してみ", atMs: 300 },
+      { final: "実行してみて。", atMs: 700 },
+    ]);
+
+    assert.equal(report.kind, "run");
+    assert.equal(report.applied, true, report.message);
+    assert.match(report.message, /npx tsx ".*Square\.ts"/);
+    assert.ok(vscode.window.terminals.some((t) => t.name === "Voice Coder"), "the Voice Coder terminal is open");
+    assert.equal(mock.runs.length, 0, "no agent call for a run");
+  });
+
+  it("says so when the project's tests cannot be told", async () => {
+    await open("src/shapes/Square.ts");
+    const report = await speak(api, [{ final: "テストを実行して。", atMs: 300 }]);
+    assert.equal(report.kind, "run");
+    assert.equal(report.applied, false);
+    assert.match(report.message, /テストの実行方法が分かりませんでした/);
+  });
+});

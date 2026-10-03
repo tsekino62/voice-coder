@@ -60,6 +60,9 @@ export function buildPrompt(intent: Intent, target: AgentTarget, context: AgentC
           "```",
         ].join("\n"),
       };
+    case "run":
+      // Runs never reach an agent; the extension builds the command itself
+      return { system: SYSTEM, user: context.utterance };
     case "refactor":
     case "create": {
       const what =

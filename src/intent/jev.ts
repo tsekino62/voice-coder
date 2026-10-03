@@ -12,6 +12,9 @@ const KIND_CRITERIA = {
     "The speaker asks to restructure existing code without changing what it does: refactor, rename, extract, split, " +
     "or merge similar classes into a shared abstract base class.",
   create: "The speaker asks to add a new file (a new module, class file or config file).",
+  run:
+    "The speaker asks to run or execute the program, the current file or the tests " +
+    "(not a report of a problem that happens when running it).",
   none: "No complete request yet: filler words, an unfinished sentence, or something else.",
 } as const;
 

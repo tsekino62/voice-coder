@@ -35,6 +35,7 @@ export const defaultResponder: MockResponder = (intent, target) => {
       return "```\n" + target.code + "\n```";
     case "refactor":
     case "create":
+    case "run":
       // Changes nothing: a test that needs file edits gives its own responder
       return "";
   }
