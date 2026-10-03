@@ -8,7 +8,7 @@
   "license": "UNLICENSED",
   "repository": {
     "type": "git",
-    "url": "file:///D:/work/voice-coder"
+    "url": "https://github.com/tsekino62/voice-coder.git"
   },
   "type": "module",
   "engines": {
@@ -231,5 +231,9 @@
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^3.2.7"
+  },
+  "homepage": "https://github.com/tsekino62/voice-coder#readme",
+  "bugs": {
+    "url": "https://github.com/tsekino62/voice-coder/issues"
   }
 }

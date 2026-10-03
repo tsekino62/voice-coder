@@ -3,6 +3,13 @@
 日本語または英語の音声で「FizzBuzz を作って」「10 行目から 20 行目を解説して」「デバッグして」
 （"Create FizzBuzz" / "Explain lines 10 to 20" / "Debug this"）と指示する VS Code 拡張。
 
+![VS Code の音声入力 + Copilot と Voice Coder の比較（話し終わりからコードが入るまで 14.8 秒 / 3.5 秒）](media/compare-vscode.gif)
+
+| デモ（日本語） | Demo (English) |
+|---|---|
+| ![デモ: 作る → 実行 → 説明 → 関数にまとめる → 実行](media/voice-coder-demo.gif) | ![Demo: create → run → explain → refactor → run](media/voice-coder-demo-en.gif) |
+
+
 ```
 マイク (pvrecorder) ─▶ SttBackend (Soniox) ─partial/final─▶ IntentSpeculator ─▶ AgentBackend (OpenAI / Claude)
                                                        │                                               │
