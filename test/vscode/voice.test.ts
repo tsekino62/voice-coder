@@ -133,6 +133,27 @@ describe("Voice Coder in VS Code", () => {
     for (const doc of output) assert.ok(!doc.getText().includes("for (") || doc.getText() === "", "nothing written to the Output panel");
   });
 
+  it("ignores a final that is only punctuation (Soniox closing with a lone 。)", async () => {
+    const { agent } = agentFor();
+    api.setAgentBackend(agent);
+    await openDocument(numberedLines(30));
+    const reports: string[] = [];
+    const listener = api.onActionDone((r) => reports.push(`${r.kind}: ${r.message}`));
+    try {
+      const report = await speak(api, [
+        { partial: "10行目から20行目を解説", atMs: 100 },
+        { final: "10行目から20行目を解説して", atMs: 500 },
+        { final: "。", atMs: 700 },
+      ]);
+      await settle(api);
+      assert.equal(report.kind, "explain");
+      assert.deepEqual(reports.filter((r) => r.startsWith("null")), [], JSON.stringify(reports));
+      assert.ok(!api.statusBarItem.text.includes("読み取れません"), api.statusBarItem.text);
+    } finally {
+      listener.dispose();
+    }
+  });
+
   it("explain leaves the document untouched", async () => {
     const { agent, mock } = agentFor();
     api.setAgentBackend(agent);

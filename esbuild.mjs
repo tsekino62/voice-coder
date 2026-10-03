@@ -17,4 +17,5 @@ await build({ ...common, entryPoints: ["src/extension/extension.ts"], outfile: "
 
 const vscodeTests = readdirSync("test/vscode").filter((f) => f.endsWith(".ts")).map((f) => `test/vscode/${f}`);
 await build({ ...common, entryPoints: vscodeTests, outdir: "out/test/vscode", outExtension: { ".js": ".cjs" } });
+await build({ ...common, entryPoints: ["test/demo/demo.ts"], outfile: "out/demo/demo.cjs" });
 await build({ ...common, entryPoints: ["test/runTest.ts"], outfile: "out/test/runTest.cjs", external: [...common.external, "@vscode/test-electron"] });

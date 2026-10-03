@@ -162,7 +162,8 @@
     "try:agent": "tsx scripts/try_agent.ts",
     "jev:compare": "tsx scripts/jev_compare.ts",
     "mic": "tsx scripts/mic.ts",
-    "stt:compare": "tsx scripts/stt_compare.ts"
+    "stt:compare": "tsx scripts/stt_compare.ts",
+    "demo": "tsx scripts/demo/record_demo.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.288",

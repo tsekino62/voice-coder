@@ -169,6 +169,8 @@ export class ActionRunner implements vscode.Disposable {
     for (const aborted of resolution.aborted) this.runs.delete(aborted);
     const dispatch = resolution.dispatch;
     if (!dispatch) {
+      // Soniox sometimes closes an utterance with a lone 。 as its own final: nothing was said
+      if (!/[\p{L}\p{N}]/u.test(resolution.text)) return;
       const message = `コマンドを読み取れませんでした: ${resolution.text}`;
       this.onStatus("done", message);
       this.report({ kind: null, applied: false, speculative: false, message });

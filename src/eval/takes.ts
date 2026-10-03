@@ -50,3 +50,10 @@ export const PARAPHRASE_TAKES: Take[] = [
 ];
 
 export const ALL_TAKES: Take[] = [...TAKES, ...PARAPHRASE_TAKES];
+
+/** Extra lines for the demo video (scripts/demo): not part of the measurements. */
+export const DEMO_TAKES: Take[] = [
+  { file: "demo_run.wav", text: "実行して", kind: "run" },
+  { file: "demo_explain.wav", text: "このコードを説明して", kind: "explain" },
+  { file: "demo_refactor.wav", text: "この処理を関数にまとめて", kind: "refactor" },
+];

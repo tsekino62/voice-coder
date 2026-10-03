@@ -12,7 +12,9 @@ import "./loadEnv.js";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { encodeWav, SAMPLE_RATE } from "../src/audio/wav.js";
-import { ALL_TAKES as TAKES } from "../src/eval/takes.js";
+import { ALL_TAKES, DEMO_TAKES } from "../src/eval/takes.js";
+
+const TAKES = [...ALL_TAKES, ...DEMO_TAKES];
 
 const OUT_DIR = join(import.meta.dirname, "..", "test", "audio");
 const MODEL_ID = "eleven_v4";

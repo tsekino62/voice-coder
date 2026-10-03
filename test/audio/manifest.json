@@ -248,5 +248,26 @@
     "kind": "debug",
     "voice": "Kagami - Storyteller & Broadcaster",
     "model": "eleven_v4"
+  },
+  {
+    "file": "demo_run.wav",
+    "text": "実行して",
+    "kind": "run",
+    "voice": "Ren - Calm & Clear",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "demo_explain.wav",
+    "text": "このコードを説明して",
+    "kind": "explain",
+    "voice": "Kagami - Storyteller & Broadcaster",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "demo_refactor.wav",
+    "text": "この処理を関数にまとめて",
+    "kind": "refactor",
+    "voice": "Ren - Calm & Clear",
+    "model": "eleven_v4"
   }
 ]
