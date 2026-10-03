@@ -27,12 +27,41 @@ const TAIL_CUT_S = 1;
 
 const { values: opts } = parseArgs({
   options: {
-    wav: { type: "string", default: join(ROOT, "test", "audio", "generate_1.wav") },
-    utterance: { type: "string", default: "FizzBuzzを作って" },
-    out: { type: "string", default: join(ROOT, "demo", "compare-vscode.mp4") },
+    lang: { type: "string", default: "ja" },
+    wav: { type: "string" },
+    utterance: { type: "string" },
+    out: { type: "string" },
     ffmpeg: { type: "string" },
   },
 });
+
+const english = opts.lang === "en";
+const WAV = opts.wav ?? join(ROOT, "test", "audio", english ? "en_generate_1.wav" : "generate_1.wav");
+const UTTERANCE = opts.utterance ?? (english ? "Create FizzBuzz" : "FizzBuzzを作って");
+const OUT = opts.out ?? join(ROOT, "demo", english ? "compare-vscode-en.mp4" : "compare-vscode.mp4");
+const L = english
+  ? {
+      builtin: "① VS Code voice input (dictation) → Copilot Chat (agent)",
+      voicecoder: "② Voice Coder (same Copilot model)",
+      voice: (u: string) => `Voice: “${u}”`,
+      enter: "Enter to send",
+      timer: "End of speech → code",
+      summary: "From end of speech to code",
+      builtinResult: (s: string) => `VS Code voice input + Copilot: ${s}`,
+      voiceCoderResult: (s: string) => `Voice Coder: ${s}`,
+      seconds: (n: number) => `${n.toFixed(1)} s`,
+    }
+  : {
+      builtin: "① VS Code の音声入力（ディクテーション）→ Copilot チャット（エージェント）",
+      voicecoder: "② Voice Coder（同じ Copilot のモデル）",
+      voice: (u: string) => `音声: 「${u}」`,
+      enter: "Enter で送信",
+      timer: "話し終わり → コード",
+      summary: "話し終わりからコードが入るまで",
+      builtinResult: (s: string) => `VS Code 音声入力 + Copilot: ${s}`,
+      voiceCoderResult: (s: string) => `Voice Coder: ${s}`,
+      seconds: (n: number) => `${n.toFixed(1)} 秒`,
+    };
 
 function buildDriver(): void {
   const result = spawnSync(
@@ -49,26 +78,23 @@ function compose(ffmpeg: string, raw: string, out: string, results: PhaseResult[
   const SUMMARY_S = 6;
   const end = duration + SUMMARY_S;
   const captions = new Captions(work);
-  const titles: Record<PhaseResult["phase"], string> = {
-    builtin: "① VS Code の音声入力（ディクテーション）→ Copilot チャット（エージェント）",
-    voicecoder: "② Voice Coder（同じ Copilot のモデル）",
-  };
+  const titles: Record<PhaseResult["phase"], string> = { builtin: L.builtin, voicecoder: L.voicecoder };
   results.forEach((r, i) => {
     const from = i === 0 ? 0 : t(r.audioStart) - 3;
     const to = i + 1 < results.length ? t(results[i + 1].audioStart) - 3 : duration;
     captions.add(titles[r.phase], from, to, { y: "40", size: 34, x: "40" });
-    captions.add(`音声: 「${opts.utterance}」`, t(r.audioStart), t(r.speechEnd) + 1.5, { y: "h-200", size: 52 });
-    if (r.sentAt) captions.add("Enter で送信", t(r.sentAt), t(r.sentAt) + 2.5, { y: "h-320", size: 44 });
-    if (r.firstEdit) captions.timer("話し終わり → コード", t(r.speechEnd), t(r.firstEdit), to, { y: "110", size: 40 });
+    captions.add(L.voice(UTTERANCE), t(r.audioStart), t(r.speechEnd) + 1.5, { y: "h-200", size: 52 });
+    if (r.sentAt) captions.add(L.enter, t(r.sentAt), t(r.sentAt) + 2.5, { y: "h-320", size: 44 });
+    if (r.firstEdit) captions.timer(L.timer, t(r.speechEnd), t(r.firstEdit), to, { y: "110", size: 40 });
   });
-  const seconds = (r: PhaseResult) => (r.firstEdit ? `${((r.firstEdit - r.speechEnd) / 1000).toFixed(1)} 秒` : "—");
+  const seconds = (r: PhaseResult) => (r.firstEdit ? L.seconds((r.firstEdit - r.speechEnd) / 1000) : "—");
   const builtin = results.find((r) => r.phase === "builtin");
   const voiceCoder = results.find((r) => r.phase === "voicecoder");
-  captions.add("話し終わりからコードが入るまで", duration, end, { y: "(h/2)-150", size: 48 });
-  if (builtin) captions.add(`VS Code 音声入力 + Copilot: ${seconds(builtin)}`, duration, end, { y: "(h/2)-60", size: 56 });
-  if (voiceCoder) captions.add(`Voice Coder: ${seconds(voiceCoder)}`, duration, end, { y: "(h/2)+30", size: 56, color: "yellow" });
+  captions.add(L.summary, duration, end, { y: "(h/2)-150", size: 48 });
+  if (builtin) captions.add(L.builtinResult(seconds(builtin)), duration, end, { y: "(h/2)-60", size: 56 });
+  if (voiceCoder) captions.add(L.voiceCoderResult(seconds(voiceCoder)), duration, end, { y: "(h/2)+30", size: 56, color: "yellow" });
 
-  const inputs = ["-i", raw, ...results.flatMap(() => ["-i", opts.wav!])];
+  const inputs = ["-i", raw, ...results.flatMap(() => ["-i", WAV])];
   const audio = results.map((r, i) => {
     const delay = Math.round(Math.max(0, r.audioStart - recordStart));
     return `[${i + 1}:a]adelay=${delay}|${delay}[a${i}]`;
@@ -100,7 +126,7 @@ async function main(): Promise<void> {
   const resultPath = join(work, "result.json");
   const raw = join(work, "raw.mkv");
   const jobPath = join(DRIVER, "job.json");
-  writeFileSync(jobPath, JSON.stringify({ action: "compare", out: resultPath, wav: resolve(opts.wav!), file: "fizzbuzz.py", sonioxKey, leadMs: 6000 }));
+  writeFileSync(jobPath, JSON.stringify({ action: "compare", out: resultPath, wav: resolve(WAV), file: "fizzbuzz.py", sonioxKey, leadMs: 6000 }));
 
   let recording: Recording | undefined;
   try {
@@ -128,10 +154,10 @@ async function main(): Promise<void> {
     const s = (ms?: number) => (ms ? `${((ms - r.speechEnd) / 1000).toFixed(2)} s` : "-");
     console.log(`${r.phase.padEnd(10)} sent ${s(r.sentAt)}  first edit ${s(r.firstEdit)}  last edit ${s(r.lastEdit)}`);
   }
-  mkdirSync(dirname(opts.out!), { recursive: true });
-  compose(ffmpeg, raw, opts.out!, result.results, recording!.startedAt, work);
-  writeFileSync(opts.out!.replace(/\.mp4$/, ".json"), JSON.stringify(result.results.map((r) => ({ ...r, finalText: r.finalText })), null, 2));
-  console.log(`wrote ${opts.out}`);
+  mkdirSync(dirname(OUT), { recursive: true });
+  compose(ffmpeg, raw, OUT, result.results, recording!.startedAt, work);
+  writeFileSync(OUT.replace(/\.mp4$/, ".json"), JSON.stringify(result.results, null, 2));
+  console.log(`wrote ${OUT}`);
 }
 
 main().catch((error) => {
