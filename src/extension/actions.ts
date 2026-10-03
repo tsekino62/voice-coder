@@ -3,7 +3,9 @@ import type { AgentBackend, AgentContext, AgentTarget } from "../agent/AgentBack
 import { extractCodeBlock, extractCodeBlockLanguage, parseFileEdits, safeRelativePath } from "../agent/prompt.js";
 import type { Dispatch, Resolution } from "../intent/speculator.js";
 import type { Intent, IntentKind } from "../intent/types.js";
+import { languageOf } from "../intent/language.js";
 import { CodeEditorTracker } from "./editors.js";
+import { noteSpokenLanguage, t } from "./messages.js";
 import { runInTerminal } from "./run.js";
 
 export const PROPOSAL_SCHEME = "voicecoder-proposal";
@@ -166,12 +168,14 @@ export class ActionRunner implements vscode.Disposable {
   }
 
   private async resolveOne(resolution: Resolution): Promise<void> {
+    // Messages follow the language the command was spoken in
+    if (/[\p{L}]/u.test(resolution.text)) noteSpokenLanguage(languageOf(resolution.text));
     for (const aborted of resolution.aborted) this.runs.delete(aborted);
     const dispatch = resolution.dispatch;
     if (!dispatch) {
       // Soniox sometimes closes an utterance with a lone 。 as its own final: nothing was said
       if (!/[\p{L}\p{N}]/u.test(resolution.text)) return;
-      const message = `コマンドを読み取れませんでした: ${resolution.text}`;
+      const message = t("noCommand", resolution.text);
       this.onStatus("done", message);
       this.report({ kind: null, applied: false, speculative: false, message });
       return;
@@ -191,7 +195,7 @@ export class ActionRunner implements vscode.Disposable {
     }
     if (!run?.target) {
       // explain / debug / refactor need code to work on
-      const message = "対象のファイルを開いてから話してください";
+      const message = t("openFileFirst");
       this.onStatus("error", `${name}: ${message}`);
       void vscode.window.showWarningMessage(`Voice Coder: ${name} — ${message}`);
       this.report({ kind: dispatch.intent.kind, applied: false, speculative: dispatch.speculative, message });
@@ -211,8 +215,8 @@ export class ActionRunner implements vscode.Disposable {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.onStatus("error", `${name}: ${message}`);
-      void vscode.window.showErrorMessage(`Voice Coder: ${name} に失敗しました: ${message}`);
-      this.report({ kind: dispatch.intent.kind, applied: false, speculative: dispatch.speculative, message: "エージェントが失敗しました", error: message });
+      void vscode.window.showErrorMessage(`Voice Coder: ${t("agentFailed", name, message)}`);
+      this.report({ kind: dispatch.intent.kind, applied: false, speculative: dispatch.speculative, message: t("agentFailedShort"), error: message });
       return;
     }
     if (dispatch.signal.aborted) return;
@@ -220,7 +224,7 @@ export class ActionRunner implements vscode.Disposable {
     switch (dispatch.intent.kind) {
       case "explain":
         this.output.appendLine("");
-        this.finish(run, true, `${name}: 出力に表示しました`);
+        this.finish(run, true, t("shownInOutput", name));
         return;
       case "generate":
         await this.applyGenerate(run, name);
@@ -249,7 +253,7 @@ export class ActionRunner implements vscode.Disposable {
     const edit = new vscode.WorkspaceEdit();
     edit.insert(document.uri, position, code);
     const applied = await vscode.workspace.applyEdit(edit);
-    this.finish(run, applied, applied ? `${name}: 挿入しました` : `${name}: 挿入できませんでした`);
+    this.finish(run, applied, applied ? t("inserted", name) : t("insertFailed", name));
   }
 
   private async proposeFix(run: Run, name: string): Promise<void> {
@@ -258,12 +262,12 @@ export class ActionRunner implements vscode.Disposable {
     const range = new vscode.Range(target.startLine, 0, target.endLine, document.lineAt(target.endLine).text.length);
     const replacement = extractCodeBlock(run.output);
     if (replacement === document.getText(range)) {
-      this.finish(run, false, `${name}: 修正案はありません`);
+      this.finish(run, false, t("noFix", name));
       return;
     }
     const full = document.getText();
     const newText = full.slice(0, document.offsetAt(range.start)) + replacement + full.slice(document.offsetAt(range.end));
-    await this.propose(run, name, `修正案（未適用）: ${name}`, [{ uri: document.uri, create: false, originalText: full, newText }]);
+    await this.propose(run, name, t("fixTitle", name), [{ uri: document.uri, create: false, originalText: full, newText }]);
   }
 
   /** generate with no file open: the code goes into a new, unsaved file in the language the agent chose. */
@@ -274,19 +278,19 @@ export class ActionRunner implements vscode.Disposable {
     const language = languageIdFor(extractCodeBlockLanguage(run.output), known);
     const document = await vscode.workspace.openTextDocument({ content: code, language });
     await vscode.window.showTextDocument(document);
-    this.finish(run, true, `${name}: 新しいファイル（${language}、未保存）に書きました`);
+    this.finish(run, true, t("newFileWritten", name, language));
   }
 
   /** refactor / create: the agent's `=== path ===` files, as one proposal over all of them. */
   private async proposeFileEdits(run: Run, name: string): Promise<void> {
     const edits = parseFileEdits(run.output);
     if (edits.length === 0) {
-      this.finish(run, false, `${name}: 変更案がありませんでした`);
+      this.finish(run, false, t("noProposal", name));
       return;
     }
     const root = (run.document && vscode.workspace.getWorkspaceFolder(run.document.uri)?.uri) ?? vscode.workspace.workspaceFolders?.[0]?.uri;
     if (!root) {
-      this.finish(run, false, `${name}: ファイルを作るにはフォルダー（ワークスペース）を開いてください`);
+      this.finish(run, false, t("needFolder", name));
       return;
     }
     const changes: NewChange[] = [];
@@ -294,7 +298,7 @@ export class ActionRunner implements vscode.Disposable {
       const path = safeRelativePath(edit.path);
       // The agent's reply decides file names: never let one point outside the workspace
       if (!path) {
-        this.finish(run, false, `${name}: ワークスペースの外を指すパスがあったので中止しました（${edit.path}）`);
+        this.finish(run, false, t("outsideWorkspace", name, edit.path));
         return;
       }
       const uri = vscode.Uri.joinPath(root, path);
@@ -303,10 +307,10 @@ export class ActionRunner implements vscode.Disposable {
       changes.push({ uri, create: existing === undefined, originalText: existing ?? "", newText: edit.content });
     }
     if (changes.length === 0) {
-      this.finish(run, false, `${name}: 変更はありませんでした`);
+      this.finish(run, false, t("noChanges", name));
       return;
     }
-    await this.propose(run, name, `変更案（未適用）: ${name}`, changes);
+    await this.propose(run, name, t("changesTitle", name), changes);
   }
 
   /** Show the changes as diffs and keep them pending until approved. */
@@ -336,12 +340,13 @@ export class ActionRunner implements vscode.Disposable {
         proposal.changes.map((c) => [c.uri, c.originalUri, c.proposalUri]),
       );
     }
-    const summary = proposal.changes.map((c) => `${c.create ? "新規" : "変更"} ${vscode.workspace.asRelativePath(c.uri)}`).join("、");
-    this.finish(run, true, `${name}: ${proposal.changes.length} ファイルの変更案を表示しました（未適用）`);
-    void vscode.window.showInformationMessage(`Voice Coder: 適用しますか？ ${summary}`, "適用", "破棄").then((choice) => {
+    const summary = proposal.changes.map((c) => t(c.create ? "newEntry" : "changedEntry", vscode.workspace.asRelativePath(c.uri))).join(t("listSeparator"));
+    this.finish(run, true, t("proposalShown", name, proposal.changes.length));
+    const [apply, discard] = [t("apply"), t("discard")];
+    void vscode.window.showInformationMessage(t("applyQuestion", summary), apply, discard).then((choice) => {
       if (this.pending?.id !== id) return;
-      if (choice === "適用") void this.applyProposal();
-      else if (choice === "破棄") this.discardProposal();
+      if (choice === apply) void this.applyProposal();
+      else if (choice === discard) this.discardProposal();
     });
   }
 
@@ -352,7 +357,7 @@ export class ActionRunner implements vscode.Disposable {
   async applyProposal(): Promise<boolean> {
     const proposal = this.pending;
     if (!proposal) {
-      void vscode.window.showWarningMessage("Voice Coder: 適用待ちの変更案はありません");
+      void vscode.window.showWarningMessage(t("nothingPending"));
       return false;
     }
     this.pending = undefined;
@@ -360,7 +365,7 @@ export class ActionRunner implements vscode.Disposable {
     for (const change of proposal.changes) {
       const current = await readText(change.uri);
       if (change.create ? current !== undefined : current !== change.originalText) {
-        void vscode.window.showWarningMessage(`Voice Coder: 変更案の作成後に ${vscode.workspace.asRelativePath(change.uri)} が変わったので適用しません`);
+        void vscode.window.showWarningMessage(t("changedSince", vscode.workspace.asRelativePath(change.uri)));
         return false;
       }
       if (change.create) {

@@ -269,5 +269,97 @@
     "kind": "refactor",
     "voice": "Ren - Calm & Clear",
     "model": "eleven_v4"
+  },
+  {
+    "file": "en_generate_1.wav",
+    "text": "Create FizzBuzz",
+    "kind": "generate",
+    "language": "en",
+    "voice": "Adam",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "en_generate_2.wav",
+    "text": "Write a FizzBuzz function in Python",
+    "kind": "generate",
+    "language": "en",
+    "voice": "Rachel",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "en_explain_1.wav",
+    "text": "Explain lines 10 to 20",
+    "kind": "explain",
+    "range": {
+      "from": 10,
+      "to": 20
+    },
+    "language": "en",
+    "voice": "Adam",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "en_explain_2.wav",
+    "text": "What does this code do?",
+    "kind": "explain",
+    "language": "en",
+    "voice": "Rachel",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "en_explain_3.wav",
+    "text": "Explain this code",
+    "kind": "explain",
+    "language": "en",
+    "voice": "Adam",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "en_debug_1.wav",
+    "text": "Debug this",
+    "kind": "debug",
+    "language": "en",
+    "voice": "Rachel",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "en_debug_2.wav",
+    "text": "The tests are failing, can you take a look?",
+    "kind": "debug",
+    "language": "en",
+    "voice": "Adam",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "en_refactor_1.wav",
+    "text": "Refactor this into a function",
+    "kind": "refactor",
+    "language": "en",
+    "voice": "Rachel",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "en_create_1.wav",
+    "text": "Create a new file for the User class",
+    "kind": "create",
+    "language": "en",
+    "voice": "Adam",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "en_run_1.wav",
+    "text": "Run it",
+    "kind": "run",
+    "language": "en",
+    "voice": "Rachel",
+    "model": "eleven_v4"
+  },
+  {
+    "file": "en_run_2.wav",
+    "text": "Run the tests",
+    "kind": "run",
+    "language": "en",
+    "voice": "Adam",
+    "model": "eleven_v4"
   }
 ]

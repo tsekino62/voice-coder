@@ -50,7 +50,7 @@ describe("MicrophoneSource", () => {
     });
     await expect(async () => {
       for await (const _ of source.chunks(new AbortController().signal)) void _;
-    }).rejects.toThrow(/マイクを開けません（デバイス 7）/);
+    }).rejects.toThrow(/マイクを開けません .*（デバイス 7）/);
   });
 });
 

@@ -11,6 +11,8 @@ export interface SonioxOptions {
   /** Upper bound on the wait after speech before `<end>` closes the utterance. */
   maxEndpointDelayMs?: number;
   terms?: string[];
+  /** Language hints; Japanese and English by default (a command may be in either). */
+  languages?: string[];
   url?: string;
 }
 
@@ -91,7 +93,7 @@ export class SonioxBackend implements SttBackend {
         audio_format: "pcm_s16le",
         sample_rate: SAMPLE_RATE,
         num_channels: 1,
-        language_hints: ["ja"],
+        language_hints: this.options.languages ?? ["ja", "en"],
         enable_endpoint_detection: true,
         max_endpoint_delay_ms: this.options.maxEndpointDelayMs ?? 1000,
         context: { terms: this.options.terms ?? DEFAULT_TERMS },

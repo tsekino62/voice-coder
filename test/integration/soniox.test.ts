@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { mapLimit, runTakeModes, type TakeResult } from "../../src/eval/runTake.js";
-import { PARAPHRASE_TAKES, TAKES } from "../../src/eval/takes.js";
+import { EN_TAKES, PARAPHRASE_TAKES, TAKES } from "../../src/eval/takes.js";
 import { hybridReader } from "../../src/intent/hybrid.js";
 import { JevIntentReader } from "../../src/intent/jev.js";
 import { parseIntent } from "../../src/intent/parser.js";
@@ -62,3 +62,18 @@ describe.skipIf(!apiKey || !process.env.TYPESAFE_API_KEY || !PARAPHRASE_TAKES.ev
     }, 120_000);
   },
 );
+
+describe.skipIf(!apiKey || !EN_TAKES.every((t) => existsSync(audioPath(t.file))))("Soniox, English takes (ja + en language hints)", () => {
+  it("reads every English command and its line range", async () => {
+    const jev = process.env.TYPESAFE_API_KEY ? new JevIntentReader() : undefined;
+    const reader = jev ? hybridReader(jev.read) : parseIntent;
+    const results = await mapLimit(EN_TAKES, 3, (take) =>
+      runTakeModes(audioPath(take.file), take.file, { apiKey: apiKey!, maxEndpointDelayMs: 1000 }, { reader }),
+    );
+    const wrong = results
+      .map((r, i) => ({ r: r.reader, take: EN_TAKES[i] }))
+      .filter(({ r, take }) => r.intent?.kind !== take.kind || (take.range && r.intent?.range?.from !== take.range.from))
+      .map(({ r, take }) => `${take.file}: "${r.text}" → ${r.intent?.kind}`);
+    expect(wrong).toEqual([]);
+  }, 120_000);
+});

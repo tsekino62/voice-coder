@@ -29,7 +29,7 @@ let pvRecorder: Promise<PvRecorderModule> | undefined;
 function loadPvRecorder(): Promise<PvRecorderModule> {
   pvRecorder ??= import("@picovoice/pvrecorder-node").catch((error: Error) => {
     pvRecorder = undefined;
-    throw new Error(`マイク用のモジュールを読み込めません（${process.platform}-${process.arch}）: ${error.message}`);
+    throw new Error(`マイク用のモジュールを読み込めません / cannot load the microphone module（${process.platform}-${process.arch}）: ${error.message}`);
   });
   return pvRecorder;
 }
@@ -56,7 +56,7 @@ export class MicrophoneSource implements AudioSource {
       recorder = create(FRAME_LENGTH, deviceIndex);
       recorder.start();
     } catch (error) {
-      throw new Error(`マイクを開けません（デバイス ${deviceIndex === -1 ? "既定" : deviceIndex}）: ${(error as Error).message}`);
+      throw new Error(`マイクを開けません / cannot open the microphone（デバイス ${deviceIndex === -1 ? "既定 / default" : deviceIndex}）: ${(error as Error).message}`);
     }
     try {
       while (!signal.aborted) {

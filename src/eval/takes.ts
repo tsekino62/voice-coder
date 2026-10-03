@@ -7,6 +7,8 @@ export interface Take {
   text: string;
   kind: IntentKind;
   range?: LineRange;
+  /** English takes use English voices. */
+  language?: "en";
 }
 
 const RANGE_10_20 = { from: 10, to: 20 };
@@ -56,4 +58,19 @@ export const DEMO_TAKES: Take[] = [
   { file: "demo_run.wav", text: "実行して", kind: "run" },
   { file: "demo_explain.wav", text: "このコードを説明して", kind: "explain" },
   { file: "demo_refactor.wav", text: "この処理を関数にまとめて", kind: "refactor" },
+];
+
+/** English commands (English voices), for tests and the English demo. */
+export const EN_TAKES: Take[] = [
+  { file: "en_generate_1.wav", text: "Create FizzBuzz", kind: "generate", language: "en" },
+  { file: "en_generate_2.wav", text: "Write a FizzBuzz function in Python", kind: "generate", language: "en" },
+  { file: "en_explain_1.wav", text: "Explain lines 10 to 20", kind: "explain", range: RANGE_10_20, language: "en" },
+  { file: "en_explain_2.wav", text: "What does this code do?", kind: "explain", language: "en" },
+  { file: "en_explain_3.wav", text: "Explain this code", kind: "explain", language: "en" },
+  { file: "en_debug_1.wav", text: "Debug this", kind: "debug", language: "en" },
+  { file: "en_debug_2.wav", text: "The tests are failing, can you take a look?", kind: "debug", language: "en" },
+  { file: "en_refactor_1.wav", text: "Refactor this into a function", kind: "refactor", language: "en" },
+  { file: "en_create_1.wav", text: "Create a new file for the User class", kind: "create", language: "en" },
+  { file: "en_run_1.wav", text: "Run it", kind: "run", language: "en" },
+  { file: "en_run_2.wav", text: "Run the tests", kind: "run", language: "en" },
 ];

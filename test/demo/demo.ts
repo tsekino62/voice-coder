@@ -6,7 +6,7 @@ import { join } from "node:path";
 import * as vscode from "vscode";
 import type { ActionReport } from "../../src/extension/actions.js";
 import type { VoiceCoderApi } from "../../src/extension/extension.js";
-import { getApi, sleep } from "../vscode/helpers.js";
+import { getApi, releaseKey, sleep } from "../vscode/helpers.js";
 
 /** The report of the scene's command (a stray fragment of the utterance does not count). */
 function nextCommandReport(api: VoiceCoderApi): Promise<ActionReport> {
@@ -31,13 +31,23 @@ interface Scene {
   apply?: boolean;
 }
 
-const SCENES: Scene[] = [
+const SCENES_JA: Scene[] = [
   { wav: "generate_1.wav", caption: "「FizzBuzzを作って」", holdMs: 3000 },
   { wav: "demo_run.wav", caption: "「実行して」", holdMs: 4000 },
   { wav: "demo_explain.wav", caption: "「このコードを説明して」", holdMs: 6000 },
   { wav: "demo_refactor.wav", caption: "「この処理を関数にまとめて」", holdMs: 4000, apply: true },
   { wav: "demo_run.wav", caption: "「実行して」", holdMs: 4000 },
 ];
+
+const SCENES_EN: Scene[] = [
+  { wav: "en_generate_1.wav", caption: "“Create FizzBuzz”", holdMs: 3000 },
+  { wav: "en_run_1.wav", caption: "“Run it”", holdMs: 4000 },
+  { wav: "en_explain_3.wav", caption: "“Explain this code”", holdMs: 6000 },
+  { wav: "en_refactor_1.wav", caption: "“Refactor this into a function”", holdMs: 4000, apply: true },
+  { wav: "en_run_1.wav", caption: "“Run it”", holdMs: 4000 },
+];
+const english = process.env.DEMO_LANG === "en";
+const SCENES = english ? SCENES_EN : SCENES_JA;
 
 /** Seconds of speech in a 16 kHz mono 16-bit WAV. */
 const seconds = (path: string) => (statSync(path).size - 44) / 32000;
@@ -81,15 +91,15 @@ export async function run(): Promise<void> {
       const report = nextCommandReport(api);
       await vscode.commands.executeCommand("voiceCoder.toggleListening");
       const audioStart = Date.now();
-      // Release the key a moment after the line ends, as a speaker would
+      // Listening stops by itself once the line is final; press again only if it has not
       await sleep(seconds(wav) * 1000 + 1500);
-      await vscode.commands.executeCommand("voiceCoder.toggleListening");
+      await releaseKey(api);
       const done = await report;
       const entry: TimelineEntry = { wav: scene.wav, caption: scene.caption, audioStart, doneAt: Date.now(), message: done.message };
       timeline.push(entry);
       await sleep(scene.holdMs);
       if (scene.apply) {
-        entry.extra = { caption: "Ctrl+Alt+Enter で適用", at: Date.now() };
+        entry.extra = { caption: english ? "Ctrl+Alt+Enter to apply" : "Ctrl+Alt+Enter で適用", at: Date.now() };
         await sleep(1200);
         await vscode.commands.executeCommand("voiceCoder.applyProposal");
         await sleep(3000);

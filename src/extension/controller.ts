@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { IntentSpeculator, type IntentReader } from "../intent/speculator.js";
 import type { SttBackend } from "../stt/SttBackend.js";
 import type { ActionRunner } from "./actions.js";
+import { t } from "./messages.js";
 import type { StatusView } from "./status.js";
 
 /**
@@ -20,6 +21,8 @@ export class VoiceController implements vscode.Disposable {
     private readonly status: StatusView,
     /** How commands are read from transcripts; asked again on every start. */
     private readonly reader: () => IntentReader,
+    /** Close the microphone by itself once an utterance is final (voiceCoder.stopAfterUtterance). */
+    private readonly stopAfterUtterance: () => boolean = () => true,
   ) {}
 
   get listening(): boolean {
@@ -54,7 +57,11 @@ export class VoiceController implements vscode.Disposable {
       this.lastText = text;
       this.status.partial(text);
     });
-    stt.onFinal(({ text }) => (this.lastText = text));
+    stt.onFinal(({ text }) => {
+      this.lastText = text;
+      // One utterance per press: once it is final, close the microphone (unless turned off)
+      if (this.stopAfterUtterance() && /[\p{L}\p{N}]/u.test(text) && this.stt === stt) void this.stop();
+    });
     stt.onError?.((error) => {
       this.fail(error);
       // Stop listening, but leave the error in the status bar
@@ -89,7 +96,7 @@ export class VoiceController implements vscode.Disposable {
 
   private fail(error: unknown): void {
     let message = error instanceof Error ? error.message : String(error);
-    if (/マイクを開けません/.test(message)) message += "。コマンド「Voice Coder: マイクを選ぶ」で別のマイクを選べます";
+    if (/マイクを開けません/.test(message)) message += t("micHint");
     this.status.error(message);
     void vscode.window.showErrorMessage(`Voice Coder: ${message}`);
   }

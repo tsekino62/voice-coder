@@ -1,3 +1,4 @@
+import { languageOf } from "./language.js";
 import type { Intent, IntentKind, LineRange } from "./types.js";
 
 /**
@@ -16,6 +17,13 @@ const INTENT_WORDS: Array<[IntentKind, RegExp]> = [
   ["create", /(?:新しい|新規)ファイル|ファイル(?:を|に)?(?:新しく|新規に?)?(?:作[っるりれ成]|追加|用意)/g],
   // 実行して / 走らせて / 動かして, but not 実行すると固まる (a bug report)
   ["run", /実行し[てた]|実行を|走らせ|動かして|動かしてみ|起動して|ランして/g],
+  // English: whole words, on the lower-cased transcript
+  ["debug", /\bdebug|\bbugs?\b|\berrors?\b|\bexceptions?\b|\bcrash|\bbroken\b|doesn'?t work|not working|\bfail(?:s|ing|ed)?\b|\bfix (?:it|this|that|the)\b/g],
+  ["explain", /\bexplain|\bdescribe|\bwhat does\b|\bwhat is (?:this|that|it)\b|\bwalk me through|\btell me (?:about|what|how)/g],
+  ["generate", /\bcreate\b(?! (?:a |an |the )?(?:new )?file)|\bwrite\b|\bmake\b(?! (?:a |an |the )?(?:new )?file)|\bgenerate\b|\bimplement\b|\bbuild\b|\badd\b(?! (?:a |an |the )?(?:new )?file)/g],
+  ["refactor", /\brefactor|\bextract|\brename|\bclean (?:it |this |that )?up|\bsimplify|\binto (?:a |an )?(?:function|method|class)|\babstract (?:base )?class|\bbase class|\bmerge\b|\bsplit\b/g],
+  ["create", /\bnew file|\b(?:create|add|make) (?:a |an |the )?(?:new )?file/g],
+  ["run", /\brun\b|\bexecute\b|\blaunch\b/g],
 ];
 
 /**
@@ -23,11 +31,13 @@ const INTENT_WORDS: Array<[IntentKind, RegExp]> = [
  * bigger request outranks a smaller one in the same sentence: 抽象クラスを作って
  * is a refactoring, not a generate, and ファイルを作って is a new file.
  */
-const RESTATEMENT = /やっぱ|いや|じゃなく|ではなく|違う|ちがう|やめ/;
+const RESTATEMENT = /やっぱ|いや|じゃなく|ではなく|違う|ちがう|やめ|\bactually\b|\binstead\b|\bno,|\bwait\b|\bnever ?mind\b/;
 const PRECEDENCE: IntentKind[] = ["refactor", "create"];
 
 /** Right after an intent word, these take it back: 作るんじゃなくて, 説明はいらない. */
 const NEGATION = /^.{0,6}?(?:じゃなく|ではなく|じゃない|ではない|いらない|いらん|不要|やめ|なしで)/;
+/** In English the taking back comes first: don't create, no need to explain. */
+const NEGATION_BEFORE = /(?:\bdon'?t|\bdo not|\bno need to|\binstead of|\bnot)\s+$/;
 
 const KANJI_DIGITS: Record<string, number> = {
   〇: 0, 零: 0, 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9,
@@ -80,6 +90,14 @@ const RANGE_PATTERNS = [
   new RegExp(String.raw`(\d+)\s*[^\d\s]目${SEP}(\d+)${LINE}`),
 ];
 const SINGLE_LINE = /(\d+)\s*行目/;
+// lines 10 to 20 / line 10 through line 20 / lines 10-20 / from line 10 to 20
+const EN_RANGE = /\blines? (\d+)\s*(?:to|through|thru|until|till|and|-)\s*(?:line )?(\d+)/;
+const EN_SINGLE = /\bline (\d+)\b/;
+const EN_NUMBERS: Record<string, number> = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17,
+  eighteen: 18, nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50,
+};
 
 /** The line range in already-normalized text, lowest line first. */
 export function parseLineRange(normalized: string): LineRange | null {
@@ -91,13 +109,34 @@ export function parseLineRange(normalized: string): LineRange | null {
     }
   }
   const single = SINGLE_LINE.exec(normalized);
-  return single ? { from: Number(single[1]), to: Number(single[1]) } : null;
+  if (single) return { from: Number(single[1]), to: Number(single[1]) };
+  // English, with spelled-out numbers turned into digits (lines ten to twenty)
+  const english = normalized.replace(/\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty)\b/g, (w) => String(EN_NUMBERS[w]));
+  const range = EN_RANGE.exec(english);
+  if (range) {
+    const [a, b] = [Number(range[1]), Number(range[2])];
+    return { from: Math.min(a, b), to: Math.max(a, b) };
+  }
+  const line = EN_SINGLE.exec(english);
+  return line ? { from: Number(line[1]), to: Number(line[1]) } : null;
 }
 
 /** Identifiers: runs of latin letters/digits, spaces closed up (Fizz Buzz → fizzbuzz). */
 export function parseTerms(normalized: string): string[] {
   const runs = normalized.match(/[a-z][a-z0-9_]*(?:\s+[a-z0-9_]+)*/g) ?? [];
   return [...new Set(runs.map((run) => run.replace(/\s+/g, "")))].sort();
+}
+
+/**
+ * Identifiers named in a transcript. In Japanese every Latin run is one; in an
+ * English sentence only code-like words count (FizzBuzz, fetchUser, fetch_user,
+ * main.py), or every new word would look like a different request.
+ */
+export function termsOf(text: string): string[] {
+  if (languageOf(text) === "ja") return parseTerms(normalizeText(text));
+  const words = text.normalize("NFKC").match(/[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z0-9]+)?/g) ?? [];
+  const codeLike = words.filter((w) => /^[A-Za-z][a-z0-9]*[A-Z]|_|\d|\./.test(w));
+  return [...new Set(codeLike.map((w) => w.toLowerCase()))].sort();
 }
 
 /**
@@ -112,13 +151,14 @@ export function parseIntent(text: string): Intent | null {
     for (const match of normalized.matchAll(pattern)) {
       const after = normalized.slice(match.index + match[0].length);
       if (NEGATION.test(after)) continue;
+      if (NEGATION_BEFORE.test(normalized.slice(Math.max(0, match.index - 16), match.index))) continue;
       found.add(kind);
       if (!last || match.index > last.index) last = { kind, index: match.index };
     }
   }
   if (!last) return null;
   const kind = RESTATEMENT.test(normalized) ? last.kind : (PRECEDENCE.find((k) => found.has(k)) ?? last.kind);
-  return { kind, range: parseLineRange(normalized), terms: parseTerms(normalized) };
+  return { kind, range: parseLineRange(normalized), terms: termsOf(text) };
 }
 
 /** Same command as far as the downstream action is concerned. */

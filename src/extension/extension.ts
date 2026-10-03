@@ -14,6 +14,7 @@ import type { SttBackend } from "../stt/SttBackend.js";
 import { ActionRunner, type ActionReport, type Proposal } from "./actions.js";
 import { VoiceController } from "./controller.js";
 import { readKeys, type KeyName } from "./keys.js";
+import { setMessageLanguageSetting, t } from "./messages.js";
 import { StatusView } from "./status.js";
 
 /** Returned from activate(); the integration tests swap backends through it. */
@@ -39,6 +40,9 @@ function config() {
     maxEndpointDelayMs: c.get<number>("maxEndpointDelayMs") ?? 1000,
     intentReader: c.get<"regex" | "jev" | "hybrid">("intentReader") ?? "hybrid",
     envFile: c.get<string>("envFile") || "",
+    messageLanguage: c.get<string>("messageLanguage") || "auto",
+    languages: c.get<string[]>("languages") ?? ["ja", "en"],
+    stopAfterUtterance: c.get<boolean>("stopAfterUtterance") ?? true,
     replayWav: c.get<string>("replayWav") || "",
   };
 }
@@ -50,7 +54,7 @@ export function activate(context: vscode.ExtensionContext): VoiceCoderApi {
   const keys = () => readKeys(config().envFile, vscode.workspace.workspaceFolders?.[0]?.uri.fsPath);
   const required = (name: KeyName): string => {
     const value = keys()[name];
-    if (!value) throw new Error(`${name} がありません（環境変数か、設定 voiceCoder.envFile で指す .env に書く）`);
+    if (!value) throw new Error(t("keyMissing", name));
     return value;
   };
 
@@ -59,7 +63,7 @@ export function activate(context: vscode.ExtensionContext): VoiceCoderApi {
     const c = config();
     // replayWav: a file instead of the mic, for trying the pipeline without speaking
     const source = c.replayWav ? new WavFileSource(c.replayWav, 3) : new MicrophoneSource({ deviceIndex: c.micDevice ?? -1 });
-    return new SonioxBackend(source, { apiKey, maxEndpointDelayMs: c.maxEndpointDelayMs });
+    return new SonioxBackend(source, { apiKey, maxEndpointDelayMs: c.maxEndpointDelayMs, languages: c.languages });
   };
   const agent = (): AgentBackend => {
     if (agentOverride) return agentOverride;
@@ -75,6 +79,12 @@ export function activate(context: vscode.ExtensionContext): VoiceCoderApi {
     });
   };
 
+  setMessageLanguageSetting(config().messageLanguage);
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("voiceCoder.messageLanguage")) setMessageLanguageSetting(config().messageLanguage);
+    }),
+  );
   const status = new StatusView();
   const output = vscode.window.createOutputChannel("Voice Coder");
   const actions = new ActionRunner(agent, output, (state, label) => {
@@ -89,14 +99,14 @@ export function activate(context: vscode.ExtensionContext): VoiceCoderApi {
     const apiKey = keys().TYPESAFE_API_KEY;
     if (!apiKey) {
       // hybrid quietly degrades to keywords; an explicit jev choice deserves a word
-      if (mode === "jev") void vscode.window.showWarningMessage("Voice Coder: TYPESAFE_API_KEY が無いので jev を使わず正規表現で意図を読みます");
+      if (mode === "jev") void vscode.window.showWarningMessage(t("jevMissing"));
       return parseIntent;
     }
     let jev = jevByKey.get(apiKey);
     if (!jev) jevByKey.set(apiKey, (jev = new JevIntentReader({ apiKey })));
     return mode === "jev" ? jev.read : hybridReader(jev.read);
   };
-  const controller = new VoiceController(() => (sttFactory ?? defaultStt)(), actions, status, reader);
+  const controller = new VoiceController(() => (sttFactory ?? defaultStt)(), actions, status, reader, () => config().stopAfterUtterance);
 
   context.subscriptions.push(
     status,
@@ -136,13 +146,13 @@ async function selectMicrophone(): Promise<void> {
   }
   const current = vscode.workspace.getConfiguration("voiceCoder").get<number | null>("micDevice") ?? null;
   const items = [
-    { label: "システムの既定のマイク", index: null as number | null },
+    { label: t("micDefault"), index: null as number | null },
     ...devices.map((name, index) => ({ label: name, index: index as number | null })),
-  ].map((item) => ({ ...item, description: item.index === current ? "使用中" : undefined }));
-  const picked = await vscode.window.showQuickPick(items, { placeHolder: "音声入力に使うマイク" });
+  ].map((item) => ({ ...item, description: item.index === current ? t("micInUse") : undefined }));
+  const picked = await vscode.window.showQuickPick(items, { placeHolder: t("micPlaceholder") });
   if (!picked) return;
   await vscode.workspace.getConfiguration("voiceCoder").update("micDevice", picked.index, vscode.ConfigurationTarget.Global);
-  void vscode.window.showInformationMessage(`Voice Coder: マイクを「${picked.label}」にしました`);
+  void vscode.window.showInformationMessage(t("micSet", picked.label));
 }
 
 export function deactivate(): void {}

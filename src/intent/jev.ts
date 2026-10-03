@@ -1,5 +1,5 @@
 import { TypeSafeClient } from "@typesafe-ai/sdk";
-import { normalizeText, parseLineRange, parseTerms } from "./parser.js";
+import { normalizeText, parseLineRange, termsOf } from "./parser.js";
 import type { Intent, IntentKind } from "./types.js";
 
 const KIND_CRITERIA = {
@@ -19,7 +19,7 @@ const KIND_CRITERIA = {
 } as const;
 
 const INSTRUCTIONS =
-  "This is a Japanese speech transcript, possibly cut off mid-sentence, of a programmer talking to a code editor. " +
+  "This is a speech transcript (Japanese or English), possibly cut off mid-sentence, of a programmer talking to a code editor. " +
   "Which request does it make? If the speaker corrects themselves (e.g. 作って、あ、やっぱり説明して), the last request counts.";
 
 export interface JevOptions {
@@ -75,7 +75,7 @@ export class JevIntentReader {
     return {
       kind: answer.choice as IntentKind,
       range: parseLineRange(normalized),
-      terms: parseTerms(normalized),
+      terms: termsOf(text),
     };
   };
 }

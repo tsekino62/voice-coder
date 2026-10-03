@@ -2,7 +2,7 @@ import * as assert from "node:assert/strict";
 import { join } from "node:path";
 import * as vscode from "vscode";
 import type { VoiceCoderApi } from "../../src/extension/extension.js";
-import { getApi, nextReport, numberedLines, openDocument, settle, sleep } from "./helpers.js";
+import { getApi, nextReport, numberedLines, openDocument, releaseKey, settle, sleep } from "./helpers.js";
 
 // The extension's own pipeline, nothing swapped but the microphone: a WAV played at
 // real-time pace → Soniox → hybrid intent reading → OpenAI.
@@ -33,8 +33,8 @@ describe("the real pipeline inside VS Code (a WAV in place of the microphone)", 
     try {
       const report = nextReport(api);
       await vscode.commands.executeCommand("voiceCoder.toggleListening");
-      await sleep(4500); // the take is 3.3 s; let it play out like a speaker who then releases the key
-      await vscode.commands.executeCommand("voiceCoder.toggleListening");
+      await sleep(4500); // the take is 3.3 s; it stops by itself once the utterance is final
+      await releaseKey(api);
       const done = await report;
       assert.equal(done.kind, "explain", JSON.stringify(done));
       assert.match(done.message, /explain 10-20/);

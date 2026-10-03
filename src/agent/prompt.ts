@@ -1,3 +1,4 @@
+import { languageOf } from "../intent/language.js";
 import type { Intent } from "../intent/types.js";
 import type { AgentContext, AgentTarget } from "./AgentBackend.js";
 
@@ -54,7 +55,7 @@ export function buildPrompt(intent: Intent, target: AgentTarget, context: AgentC
         system: SYSTEM,
         user: [
           `Request (spoken): ${context.utterance}`,
-          `Explain lines ${target.startLine + 1}-${target.endLine + 1} of ${where} in Japanese, briefly and concretely.`,
+          `Explain lines ${target.startLine + 1}-${target.endLine + 1} of ${where} in ${languageOf(context.utterance) === "ja" ? "Japanese" : "English"}, briefly and concretely.`,
           "```",
           numbered(target.code, target.startLine),
           "```",

@@ -25,8 +25,9 @@ const FONT = "C\\:/Windows/Fonts/YuGothB.ttc";
 const { values: opts } = parseArgs({
   options: {
     folder: { type: "string", default: "D:\\work\\test_coder" },
-    out: { type: "string", default: join(ROOT, "demo", "voice-coder-demo.mp4") },
+    out: { type: "string" },
     ffmpeg: { type: "string" },
+    lang: { type: "string", default: "ja" },
   },
 });
 
@@ -152,6 +153,7 @@ function compose(ffmpeg: string, raw: string, out: string, timeline: TimelineEnt
     const delay = Math.max(0, entry.audioStart - recordStart);
     audioFilters.push(`[${i + 1}:a]adelay=${delay}|${delay}[a${i}]`);
   });
+  const english = opts.lang === "en";
   const captions: string[] = [];
   const caption = (text: string, from: number, to: number, y: string, size: number) => {
     const file = join(work, `caption_${captions.length}.txt`);
@@ -162,10 +164,16 @@ function compose(ffmpeg: string, raw: string, out: string, timeline: TimelineEnt
   };
   const t = (ms: number) => Math.max(0, (ms - recordStart) / 1000);
   for (const entry of timeline) {
-    caption(`音声: ${entry.caption}`, t(entry.audioStart), t(entry.doneAt) + 1.5, "h-200", 56);
-    if (entry.extra) caption(`キー: ${entry.extra.caption}`, t(entry.extra.at), t(entry.extra.at) + 3.5, "h-200", 48);
+    caption(`${english ? "Voice" : "音声"}: ${entry.caption}`, t(entry.audioStart), t(entry.doneAt) + 1.5, "h-200", 56);
+    if (entry.extra) caption(`${english ? "Key" : "キー"}: ${entry.extra.caption}`, t(entry.extra.at), t(entry.extra.at) + 3.5, "h-200", 48);
   }
-  caption("Voice Coder — テスト用の合成音声（ElevenLabs）をマイクの代わりに流しています", 0, 6, "40", 30);
+  caption(
+    english ? "Voice Coder — synthesized test speech (ElevenLabs) played in place of the microphone" : "Voice Coder — テスト用の合成音声（ElevenLabs）をマイクの代わりに流しています",
+    0,
+    6,
+    "40",
+    30,
+  );
 
   const video = `[0:v]scale=1920:-2,${captions.join(",")}[v]`;
   const audio = timeline.length
@@ -206,7 +214,7 @@ async function main(): Promise<void> {
     extensionDevelopmentPath: ROOT,
     extensionTestsPath: join(ROOT, "out", "demo", "demo.cjs"),
     launchArgs: [folder, "--disable-extensions", "--disable-gpu", "--skip-welcome", "--skip-release-notes", "--user-data-dir", userDataDir()],
-    extensionTestsEnv: { DEMO_TIMELINE: timelinePath, DEMO_LEAD_MS: "6000" },
+    extensionTestsEnv: { DEMO_TIMELINE: timelinePath, DEMO_LEAD_MS: "6000", DEMO_LANG: opts.lang! },
   });
   await watcher;
   if (!recording) throw new Error(`録画するウィンドウ「${WINDOW_TITLE}」が見つかりませんでした`);
@@ -215,9 +223,10 @@ async function main(): Promise<void> {
 
   const timeline = JSON.parse(readFileSync(timelinePath, "utf8")) as TimelineEntry[];
   for (const entry of timeline) console.log(`${entry.caption.padEnd(20)} ${((entry.doneAt - entry.audioStart) / 1000).toFixed(1)} s  ${entry.message}`);
-  mkdirSync(dirname(opts.out!), { recursive: true });
-  compose(ffmpeg, raw, opts.out!, timeline, recording.startedAt, work);
-  console.log(`wrote ${opts.out} (${(statSync(opts.out!).size / 1e6).toFixed(1)} MB)`);
+  const out = opts.out ?? join(ROOT, "demo", opts.lang === "en" ? "voice-coder-demo-en.mp4" : "voice-coder-demo.mp4");
+  mkdirSync(dirname(out), { recursive: true });
+  compose(ffmpeg, raw, out, timeline, recording.startedAt, work);
+  console.log(`wrote ${out} (${(statSync(out).size / 1e6).toFixed(1)} MB)`);
   rmSync(raw, { force: true });
 }
 

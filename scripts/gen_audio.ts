@@ -12,9 +12,9 @@ import "./loadEnv.js";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { encodeWav, SAMPLE_RATE } from "../src/audio/wav.js";
-import { ALL_TAKES, DEMO_TAKES } from "../src/eval/takes.js";
+import { ALL_TAKES, DEMO_TAKES, EN_TAKES } from "../src/eval/takes.js";
 
-const TAKES = [...ALL_TAKES, ...DEMO_TAKES];
+const TAKES = [...ALL_TAKES, ...DEMO_TAKES, ...EN_TAKES];
 
 const OUT_DIR = join(import.meta.dirname, "..", "test", "audio");
 const MODEL_ID = "eleven_v4";
@@ -23,6 +23,12 @@ const VOICES = [
   { id: "NvSwc1Fm9CxYkup0obxp", name: "Ren - Calm & Clear" },
   { id: "ScazEYvwuU9vkWE1NJuE", name: "Kagami - Storyteller & Broadcaster" },
 ];
+// ElevenLabs' premade English voices, for the English takes
+const EN_VOICES = [
+  { id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel" },
+  { id: "pNInz6obpgDQGcFmaJgB", name: "Adam" },
+];
+const voiceFor = (take: (typeof TAKES)[number], i: number) => (take.language === "en" ? EN_VOICES : VOICES)[i % 2];
 const LEAD_SILENCE_S = 0.5; // a mic stream has some room tone before the voice
 
 async function synthesize(apiKey: string, voiceId: string, text: string): Promise<Buffer> {
@@ -39,7 +45,7 @@ async function synthesize(apiKey: string, voiceId: string, text: string): Promis
 async function main(): Promise<void> {
   const force = process.argv.includes("--force");
   const dryRun = process.argv.includes("--dry-run");
-  const jobs = TAKES.map((take, i) => ({ take, voice: VOICES[i % VOICES.length] })).filter(
+  const jobs = TAKES.map((take, i) => ({ take, voice: voiceFor(take, i) })).filter(
     ({ take }) => force || !existsSync(join(OUT_DIR, take.file)),
   );
   console.log(`${TAKES.length} takes, ${jobs.length} to generate`);
@@ -55,7 +61,7 @@ async function main(): Promise<void> {
     writeFileSync(join(OUT_DIR, take.file), encodeWav(Buffer.concat([lead, pcm])));
     console.log(`  ok ${take.file} (${(pcm.length / (SAMPLE_RATE * 2)).toFixed(2)} s)`);
   }
-  const manifest = TAKES.map((take, i) => ({ ...take, voice: VOICES[i % VOICES.length].name, model: MODEL_ID }));
+  const manifest = TAKES.map((take, i) => ({ ...take, voice: voiceFor(take, i).name, model: MODEL_ID }));
   writeFileSync(join(OUT_DIR, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
 }
 

@@ -1,6 +1,7 @@
 import { dirname } from "node:path";
 import * as vscode from "vscode";
 import { fileRunCommand, testRunCommand, wantsTests } from "../run/commands.js";
+import { t } from "./messages.js";
 
 const TERMINAL_NAME = "Voice Coder";
 
@@ -13,17 +14,17 @@ export async function runInTerminal(document: vscode.TextDocument | undefined, u
   let command: string | null;
   let cwd: string | undefined;
   if (wantsTests(utterance)) {
-    if (!folder) return { error: "テストを実行するにはフォルダー（ワークスペース）を開いてください" };
+    if (!folder) return { error: t("testsNeedFolder") };
     command = testRunCommand(await projectFiles(folder.uri));
-    if (!command) return { error: "このプロジェクトのテストの実行方法が分かりませんでした（npm test / pytest / go test / cargo test に対応）" };
+    if (!command) return { error: t("testsUnknown") };
     cwd = folder.uri.fsPath;
   } else {
-    if (!document) return { error: "実行するファイルを開いてから話してください" };
-    if (document.isUntitled) return { error: "実行する前にファイルを保存してください" };
+    if (!document) return { error: t("runOpenFile") };
+    if (document.isUntitled) return { error: t("runSaveFirst") };
     command = fileRunCommand(document.languageId, document.uri.fsPath);
-    if (!command) return { error: `${document.languageId} のファイルの実行方法が分かりません` };
+    if (!command) return { error: t("runUnknownLanguage", document.languageId) };
     // Run what is on screen, not the last saved copy
-    if (document.isDirty && !(await document.save())) return { error: "ファイルを保存できませんでした" };
+    if (document.isDirty && !(await document.save())) return { error: t("saveFailed") };
     cwd = folder?.uri.fsPath ?? dirname(document.uri.fsPath);
   }
   const terminal = vscode.window.terminals.find((t) => t.name === TERMINAL_NAME && t.exitStatus === undefined) ?? vscode.window.createTerminal({ name: TERMINAL_NAME, cwd });

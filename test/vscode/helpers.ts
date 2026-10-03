@@ -92,11 +92,16 @@ export async function speak(api: VoiceCoderApi, script: Step[]): Promise<ActionR
   api.setSttFactory(() => new TimedScriptBackend(script));
   const report = nextReport(api);
   await vscode.commands.executeCommand("voiceCoder.toggleListening");
-  await vscode.commands.executeCommand("voiceCoder.toggleListening");
+  await releaseKey(api);
   return report;
 }
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Press the key again, unless the extension already stopped listening by itself. */
+export async function releaseKey(api: VoiceCoderApi): Promise<void> {
+  if (api.listening) await vscode.commands.executeCommand("voiceCoder.toggleListening");
+}
 
 /**
  * Wait until the extension has finished everything a test started, so a late

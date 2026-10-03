@@ -123,6 +123,37 @@
           "default": "",
           "description": "動作確認用: マイクの代わりにこの WAV（16 kHz モノラル 16 bit）を実時間で流す。空ならマイク。",
           "scope": "machine"
+        },
+        "voiceCoder.languages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "ja",
+            "en"
+          ],
+          "description": "音声認識の言語ヒント（Soniox）。日本語と英語のどちらで話してもよい既定値。"
+        },
+        "voiceCoder.messageLanguage": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "ja",
+            "en"
+          ],
+          "default": "auto",
+          "enumDescriptions": [
+            "直前に話した言語に合わせる（最初は日本語）",
+            "常に日本語",
+            "常に英語"
+          ],
+          "description": "ステータスバーや通知の言語。"
+        },
+        "voiceCoder.stopAfterUtterance": {
+          "type": "boolean",
+          "default": true,
+          "description": "話し終えて指示が確定したら、自動で聞き取りを止める（押す → 話す → 自動で止まる）。オフにすると、もう一度押すまで聞き続ける。"
         }
       }
     },

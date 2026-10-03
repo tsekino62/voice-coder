@@ -4,7 +4,7 @@ import { loadSdk } from "../../src/agent/ClaudeAgentBackend.js";
 import { microphoneDevices } from "../../src/audio/microphone.js";
 import { PROPOSAL_SCHEME } from "../../src/extension/actions.js";
 import type { VoiceCoderApi } from "../../src/extension/extension.js";
-import { agentFor, getApi, nextReport, settle, numberedLines, openDocument, sleep, speak, TimedScriptBackend, usingRealAgent } from "./helpers.js";
+import { agentFor, getApi, nextReport, releaseKey, settle, numberedLines, openDocument, sleep, speak, TimedScriptBackend, usingRealAgent } from "./helpers.js";
 
 describe("Voice Coder in VS Code", () => {
   let api: VoiceCoderApi;
@@ -71,9 +71,11 @@ describe("Voice Coder in VS Code", () => {
     const report = nextReport(api);
     await vscode.commands.executeCommand("voiceCoder.toggleListening");
     assert.equal((await report).kind, "generate");
-    await vscode.commands.executeCommand("voiceCoder.toggleListening");
+    // The utterance was final, so listening stopped by itself; nothing is left spinning
+    for (let waited = 0; api.listening && waited < 5000; waited += 50) await sleep(50);
+    assert.equal(api.listening, false, "stopped listening after the command");
+    await releaseKey(api);
     assert.ok(api.statusBarItem.text.startsWith("$(check)"), api.statusBarItem.text);
-    assert.equal(api.listening, false);
   });
 
   it("with no file open, generate writes into a new file in the language the agent chose", async () => {
@@ -152,6 +154,18 @@ describe("Voice Coder in VS Code", () => {
     } finally {
       listener.dispose();
     }
+  });
+
+  it("answers in English when spoken to in English", async () => {
+    const { agent } = agentFor();
+    api.setAgentBackend(agent);
+    await vscode.commands.executeCommand("workbench.action.closeAllEditors");
+    const report = await speak(api, [{ final: "Explain lines 10 to 20.", atMs: 300 }]);
+    assert.equal(report.kind, "explain");
+    assert.equal(report.message, "Open the file to work on, then speak");
+    // and back to Japanese for a Japanese command
+    const ja = await speak(api, [{ final: "10行目から20行目を解説して。", atMs: 300 }]);
+    assert.match(ja.message, /ファイルを開いて/);
   });
 
   it("explain leaves the document untouched", async () => {

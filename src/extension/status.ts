@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { t } from "./messages.js";
 
 const MAX_TEXT = 60;
 
@@ -14,6 +15,8 @@ export class StatusView implements vscode.Disposable {
   readonly onDidChange = this.changed.event;
   /** The latest command's state (running / done / error) since listening started. */
   private outcome: { text: string; tooltip: string } | undefined;
+  /** The microphone is open: every text carries the record mark, results included. */
+  private open = false;
 
   constructor() {
     this.item.command = "voiceCoder.toggleListening";
@@ -22,12 +25,13 @@ export class StatusView implements vscode.Disposable {
   }
 
   idle(): void {
-    this.set("$(mic) Voice", "Voice Coder: クリックかキーで音声入力を開始");
+    this.set("$(mic) Voice", t("idleTooltip"));
   }
 
   listening(): void {
     this.outcome = undefined;
-    this.set("$(record) 聞いています…", "Voice Coder: もう一度押すと停止");
+    this.open = true;
+    this.set(`$(record) ${t("listening")}`, t("listeningTooltip"));
   }
 
   partial(text: string): void {
@@ -35,11 +39,11 @@ export class StatusView implements vscode.Disposable {
   }
 
   finishing(text: string): void {
-    this.set(`$(loading~spin) ${clip(text)}`, "Voice Coder: 確定待ち");
+    this.set(`$(loading~spin) ${clip(text)}`, t("finishingTooltip"));
   }
 
   running(label: string): void {
-    this.setOutcome(`$(sync~spin) ${label}`, "Voice Coder: 実行中");
+    this.setOutcome(`$(sync~spin) ${label}`, t("runningTooltip"));
   }
 
   done(label: string): void {
@@ -57,13 +61,16 @@ export class StatusView implements vscode.Disposable {
    * again; the stop must not leave the "waiting" spinner over that result.)
    */
   settled(): void {
+    this.open = false;
     if (this.outcome) this.set(this.outcome.text, this.outcome.tooltip);
     else this.idle();
   }
 
   private setOutcome(text: string, tooltip: string): void {
     this.outcome = { text, tooltip };
-    this.set(text, tooltip);
+    // Still listening (a result came in before the microphone closed): say so
+    if (this.open) this.set(`$(record) ${text}`, `${tooltip} — ${t("listeningTooltip")}`);
+    else this.set(text, tooltip);
   }
 
   private set(text: string, tooltip: string): void {

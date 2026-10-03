@@ -1,6 +1,7 @@
 # Voice Coder
 
-日本語の音声で「FizzBuzz を作って」「10 行目から 20 行目を解説して」「デバッグして」と指示する VS Code 拡張。
+日本語または英語の音声で「FizzBuzz を作って」「10 行目から 20 行目を解説して」「デバッグして」
+（"Create FizzBuzz" / "Explain lines 10 to 20" / "Debug this"）と指示する VS Code 拡張。
 
 ```
 マイク (pvrecorder) ─▶ SttBackend (Soniox) ─partial/final─▶ IntentSpeculator ─▶ AgentBackend (OpenAI / Claude)
@@ -8,7 +9,9 @@
                                                   ステータスバー                         final で確定した結果だけをエディタへ
 ```
 
-- **push-to-talk**: `Ctrl+Alt+V`（macOS は `Cmd+Alt+V`）で聞き始め、もう一度押すと止める。常時待ち受けはしない。
+- **push-to-talk**: `Ctrl+Alt+V`（macOS は `Cmd+Alt+V`）で聞き始め、話し終えて指示が確定すると自動で止まる
+  （設定 `voiceCoder.stopAfterUtterance`）。途中で止めるときはもう一度押す。聞いている間はステータスバーに録音中の印が出る。常時待ち受けはしない。
+- **日本語と英語**: どちらで話してもよい。説明などの返答と、ステータスバー・通知の言葉は話した言語に合わせる（設定 `voiceCoder.messageLanguage`）。
 - **先読み**: partial に意図語が出た時点でエージェントを動かし始める。final で意図が食い違えば `AbortSignal` で止め、
   final の意図でやり直す。エディタに書き込むのは final で確定した結果だけなので、止めた実行は何も残さない。
 - **explain**: 出力パネル「Voice Coder」に説明を流す。ドキュメントは変えない。
@@ -67,6 +70,9 @@ setx OPENAI_API_KEY "..."
 | `voiceCoder.model` | 空 | モデル名。空なら `openai` は `gpt-6.1-sol`、`claude` は `claude-opus-5-5` |
 | `voiceCoder.intentReader` | `hybrid` | 発話から意図を読む方法。`hybrid`（キーワードで読めなければ jev）、`regex`、`jev`。比較は `docs/JEV.md` |
 | `voiceCoder.claudeCodePath` | 空 | `claude` のときの Claude Code 実行ファイル。空なら SDK 同梱のもの、なければ PATH 上の `claude` |
+| `voiceCoder.stopAfterUtterance` | `true` | 指示が確定したら自動で聞き取りを止める |
+| `voiceCoder.languages` | `["ja", "en"]` | 音声認識の言語ヒント |
+| `voiceCoder.messageLanguage` | `auto` | 表示の言語。`auto` は話した言語に合わせる（最初は日本語）、`ja` / `en` で固定 |
 | `voiceCoder.replayWav` | 空 | 動作確認用: マイクの代わりにこの WAV（16 kHz モノラル）を実時間で流す |
 | `voiceCoder.maxEndpointDelayMs` | `1000` | Soniox の発話終了判定の上限 |
 
@@ -120,6 +126,8 @@ npx vsce package
   音声認識はどちらの場合も、タイミングを決めて partial / final を流すスクリプトに差し替える。
 - `SONIOX_API_KEY` があると `test/audio/` の 15 本を実時間で Soniox に流す統合テストも走る（無ければ skip）。
   `npm run latency` で `docs/LATENCY.md` を計測し直す。`TYPESAFE_API_KEY` もあると、同じ音声で jev による意図の読み取りも確かめる。
+- `npm run demo`（`-- --lang en` で英語版）はデモ動画を `demo/` に作る（ffmpeg が必要。録画中の約 1 分半はキーボードとマウスに触れない）。
+- 競合の調査結果は `docs/COMPETITORS.md`。
 - `npm run stt:compare` は音声認識を Soniox と OpenAI（`gpt-live-transcribe` / `gpt-transcribe`、Codex のディクテーション相当）で
   比べ、`docs/STT_COMPARE.md` に書く（30 本、push-to-talk で発話終了 300 ms 後に離した扱い）。
 - `npm run jev:compare` は正規表現 / jev / ハイブリッドを、キーワードありの 15 本と無しの 15 本（`test/audio/para_*.wav`）で比べ、`docs/JEV.md` に書く。
