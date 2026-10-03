@@ -22,6 +22,8 @@ type Sdk = typeof import("@anthropic-ai/claude-agent-sdk");
 const importUrl = new Function("url", "return import(url)") as (url: string) => Promise<Sdk>;
 
 export function loadSdk(): Promise<Sdk> {
+  // Run as an ES module (scripts under tsx) a plain import() resolves it
+  if (typeof __filename === "undefined") return import("@anthropic-ai/claude-agent-sdk");
   const entry = createRequire(__filename).resolve("@anthropic-ai/claude-agent-sdk");
   return importUrl(pathToFileURL(entry).href);
 }

@@ -10,7 +10,7 @@ const common = {
   sourcemap: true,
   logLevel: "warning",
   // vscode is provided by the host; the Agent SDK is ESM that locates its own binary
-  external: ["vscode", "@anthropic-ai/claude-agent-sdk", "bufferutil", "utf-8-validate", "mocha"],
+  external: ["vscode", "@anthropic-ai/claude-agent-sdk", "@picovoice/pvrecorder-node", "bufferutil", "utf-8-validate", "mocha"],
 };
 
 await build({ ...common, entryPoints: ["src/extension/extension.ts"], outfile: "dist/extension.cjs" });

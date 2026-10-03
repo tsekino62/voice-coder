@@ -4,11 +4,11 @@ import * as vscode from "vscode";
 import type { VoiceCoderApi } from "../../src/extension/extension.js";
 import { getApi, nextReport, numberedLines, openDocument, settle, sleep } from "./helpers.js";
 
-// The extension's own pipeline, nothing swapped: the Python sidecar (replaying a WAV
-// instead of the microphone) → Soniox → hybrid intent reading → OpenAI.
+// The extension's own pipeline, nothing swapped but the microphone: a WAV played at
+// real-time pace → Soniox → hybrid intent reading → OpenAI.
 const live = Boolean(process.env.SONIOX_API_KEY && process.env.OPENAI_API_KEY);
 
-describe("the real pipeline inside VS Code (sidecar replaying a WAV)", () => {
+describe("the real pipeline inside VS Code (a WAV in place of the microphone)", () => {
   let api: VoiceCoderApi;
   const settings = () => vscode.workspace.getConfiguration("voiceCoder");
   const audio = (file: string) => join(vscode.extensions.getExtension("tsekino.voice-coder")!.extensionPath, "test", "audio", file);
@@ -46,7 +46,7 @@ describe("the real pipeline inside VS Code (sidecar replaying a WAV)", () => {
     }
   });
 
-  it("shows a sidecar failure in the status bar instead of listening forever", async () => {
+  it("shows an audio failure in the status bar instead of listening forever", async () => {
     await settings().update("replayWav", audio("does-not-exist.wav"), vscode.ConfigurationTarget.Global);
     await openDocument(numberedLines(3));
     const seen: string[] = [];
@@ -54,7 +54,7 @@ describe("the real pipeline inside VS Code (sidecar replaying a WAV)", () => {
     try {
       await vscode.commands.executeCommand("voiceCoder.toggleListening");
       for (let waited = 0; !seen.some((t) => t.startsWith("$(error)")) && waited < 10_000; waited += 100) await sleep(100);
-      assert.ok(seen.some((t) => t.startsWith("$(error)") && /sidecar/.test(t)), JSON.stringify(seen));
+      assert.ok(seen.some((t) => t.startsWith("$(error)") && /ENOENT/.test(t)), JSON.stringify(seen));
       for (let waited = 0; api.listening && waited < 5000; waited += 100) await sleep(100);
       assert.equal(api.listening, false, "listening stopped by itself");
     } finally {

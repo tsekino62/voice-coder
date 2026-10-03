@@ -88,7 +88,7 @@ export class VoiceController implements vscode.Disposable {
 
   private fail(error: unknown): void {
     let message = error instanceof Error ? error.message : String(error);
-    if (/pyaudio/i.test(message)) message += "。PyAudio が入った Python を設定 voiceCoder.pythonPath に指定してください";
+    if (/マイクを開けません/.test(message)) message += "。コマンド「Voice Coder: マイクを選ぶ」で別のマイクを選べます";
     this.status.error(message);
     void vscode.window.showErrorMessage(`Voice Coder: ${message}`);
   }

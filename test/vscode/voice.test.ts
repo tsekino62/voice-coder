@@ -1,6 +1,7 @@
 import * as assert from "node:assert/strict";
 import * as vscode from "vscode";
 import { loadSdk } from "../../src/agent/ClaudeAgentBackend.js";
+import { microphoneDevices } from "../../src/audio/microphone.js";
 import { PROPOSAL_SCHEME } from "../../src/extension/actions.js";
 import type { VoiceCoderApi } from "../../src/extension/extension.js";
 import { agentFor, getApi, settle, numberedLines, openDocument, sleep, speak, usingRealAgent } from "./helpers.js";
@@ -22,6 +23,11 @@ describe("Voice Coder in VS Code", () => {
   it("loads the ESM-only Claude Agent SDK from the CommonJS bundle", async () => {
     const sdk = await loadSdk();
     assert.equal(typeof sdk.query, "function");
+  });
+
+  it("loads the native microphone recorder in the extension host (no recording)", async () => {
+    const devices = await microphoneDevices();
+    assert.ok(Array.isArray(devices));
   });
 
   it("streams partial transcripts into the status bar", async () => {
@@ -92,7 +98,9 @@ describe("Voice Coder in VS Code", () => {
     if (!usingRealAgent()) assert.match(after, /function fizzBuzz/);
     assert.equal(editor.document.version, version + 1, "exactly one edit");
 
-    await vscode.window.showTextDocument(editor.document);
+    // undo acts on whatever has focus: make sure it is this editor, not a notification or panel
+    await vscode.window.showTextDocument(editor.document, { preserveFocus: false });
+    await vscode.commands.executeCommand("workbench.action.focusActiveEditorGroup");
     await vscode.commands.executeCommand("undo");
     assert.equal(editor.document.getText(), before);
   });

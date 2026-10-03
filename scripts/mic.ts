@@ -5,7 +5,7 @@
  * and after each stop the times from the end of speech.
  *
  *   npm run mic
- *   npm run mic -- --python D:\work\stt_probe\.venv\Scripts\python.exe --device 1
+ *   npm run mic -- --device 1          # see --list-devices
  *   npm run mic -- --reader regex --agent off
  *   npm run mic -- --file src/intent/parser.ts --save recordings
  *   npm run mic -- --list-devices
@@ -15,7 +15,6 @@
  * OPENAI_API_KEY or ANTHROPIC_API_KEY (agent), from the environment or .env.
  */
 import "./loadEnv.js";
-import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { createInterface } from "node:readline";
@@ -23,8 +22,8 @@ import { parseArgs } from "node:util";
 import type { AgentBackend, AgentTarget } from "../src/agent/AgentBackend.js";
 import { ClaudeAgentBackend } from "../src/agent/ClaudeAgentBackend.js";
 import { OpenAIAgentBackend } from "../src/agent/OpenAIAgentBackend.js";
-import { SidecarAudioSource } from "../src/audio/sidecar.js";
-import type { AudioSource } from "../src/audio/source.js";
+import { MicrophoneSource, microphoneDevices } from "../src/audio/microphone.js";
+import { WavFileSource, type AudioSource } from "../src/audio/source.js";
 import { encodeWav, speechBounds } from "../src/audio/wav.js";
 import { hybridReader } from "../src/intent/hybrid.js";
 import { JevIntentReader } from "../src/intent/jev.js";
@@ -33,12 +32,9 @@ import { IntentSpeculator, type Dispatch, type IntentReader, type Resolution } f
 import type { Intent } from "../src/intent/types.js";
 import { SonioxBackend } from "../src/stt/SonioxBackend.js";
 
-const ROOT = join(import.meta.dirname, "..");
-const SIDECAR = join(ROOT, "python", "mic_sidecar.py");
 
 const { values: opts } = parseArgs({
   options: {
-    python: { type: "string", default: process.env.VOICE_CODER_PYTHON ?? "python" },
     device: { type: "string" },
     reader: { type: "string", default: "hybrid" },
     agent: { type: "string" },
@@ -92,7 +88,7 @@ function fail(message: string): never {
   process.exit(1);
 }
 
-/** Passes the sidecar's audio through, keeping a copy and when the first chunk arrived. */
+/** Passes the audio through, keeping a copy and when the first chunk arrived. */
 class TappedSource implements AudioSource {
   readonly chunks_: Buffer[] = [];
   firstChunkAt: number | undefined;
@@ -141,19 +137,11 @@ interface Run {
 
 async function main(): Promise<void> {
   if (opts["list-devices"]) {
-    spawnSync(opts.python, [SIDECAR, "--list-devices"], { stdio: "inherit" });
+    (await microphoneDevices()).forEach((name, index) => console.log(`${index}: ${name}`));
     return;
   }
   const soniox = process.env.SONIOX_API_KEY;
   if (!soniox) fail("SONIOX_API_KEY がありません（環境変数か .env）");
-  const check = spawnSync(opts.python, ["-c", "import pyaudio"], { encoding: "utf8" });
-  if (!opts.wav && check.status !== 0) {
-    fail(
-      `${opts.python} で PyAudio が使えません。\n` +
-        `  pip install pyaudio するか、PyAudio 入りの Python を指定してください:\n` +
-        `  npm run mic -- --python D:\\work\\stt_probe\\.venv\\Scripts\\python.exe`,
-    );
-  }
 
   const fileText = opts.file ? readFileSync(opts.file, "utf8") : SAMPLE;
   const fileName = opts.file ? basename(opts.file) : "sample.ts";
@@ -172,7 +160,7 @@ async function main(): Promise<void> {
   const { agent, name: agentName } = makeAgent();
 
   console.log(bold("voice-coder マイク試験"));
-  console.log(dim(`  Python: ${opts.python}  ${opts.wav ? `音声: ${opts.wav}（マイクの代わり）` : `デバイス: ${opts.device ?? "既定"}`}  意図: ${reader.name}  LLM: ${agentName}  対象: ${fileName}（${lines.length} 行）`));
+  console.log(dim(`  ${opts.wav ? `音声: ${opts.wav}（マイクの代わり）` : `デバイス: ${opts.device ?? "既定"}`}  意図: ${reader.name}  LLM: ${agentName}  対象: ${fileName}（${lines.length} 行）`));
   console.log(dim("  Enter で話し始め、話し終えたら Enter で止める。q + Enter で終了。"));
   console.log(dim("  例: 「FizzBuzzを作って」「13行目から17行目を解説して」「テストが通らないんだけど」\n"));
 
@@ -186,11 +174,7 @@ async function main(): Promise<void> {
     take++;
 
     const source = new TappedSource(
-      new SidecarAudioSource({
-        python: opts.python,
-        script: SIDECAR,
-        args: opts.wav ? ["--wav", opts.wav] : opts.device ? ["--device", opts.device] : [],
-      }),
+      opts.wav ? new WavFileSource(opts.wav, 0) : new MicrophoneSource({ deviceIndex: opts.device === undefined ? -1 : Number(opts.device) }),
     );
     const backend = new SonioxBackend(source, { apiKey: soniox, maxEndpointDelayMs: 1000 });
     const runs = new Map<Dispatch, Run>();
@@ -292,7 +276,7 @@ async function main(): Promise<void> {
     else if (!bounds) say("  音声は届いたが発話を検出できませんでした（音が小さい？）");
     else if (!last) say("  final が返りませんでした");
     else {
-      // The sidecar starts after the socket opens: audio time 0 is when its first chunk arrived
+      // Recording starts after the socket opens: audio time 0 is when its first chunk arrived
       const audioStart = (source.firstChunkAt ?? backend.startedAt) - backend.startedAt;
       const speechEnd = audioStart + bounds.end * 1000;
       const run = last.dispatch && runs.get(last.dispatch);

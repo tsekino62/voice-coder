@@ -3,7 +3,8 @@ import type { AgentBackend } from "../agent/AgentBackend.js";
 import { ClaudeAgentBackend } from "../agent/ClaudeAgentBackend.js";
 import { findClaudeExecutable } from "../agent/claudeExecutable.js";
 import { DEFAULT_OPENAI_MODEL, OpenAIAgentBackend } from "../agent/OpenAIAgentBackend.js";
-import { SidecarAudioSource } from "../audio/sidecar.js";
+import { MicrophoneSource, microphoneDevices } from "../audio/microphone.js";
+import { WavFileSource } from "../audio/source.js";
 import { hybridReader } from "../intent/hybrid.js";
 import { JevIntentReader } from "../intent/jev.js";
 import { parseIntent } from "../intent/parser.js";
@@ -31,7 +32,6 @@ export interface VoiceCoderApi {
 function config() {
   const c = vscode.workspace.getConfiguration("voiceCoder");
   return {
-    pythonPath: c.get<string>("pythonPath") || "python",
     micDevice: c.get<number | null>("micDevice") ?? null,
     agent: c.get<"openai" | "claude">("agent") ?? "openai",
     model: c.get<string>("model") || "",
@@ -57,12 +57,8 @@ export function activate(context: vscode.ExtensionContext): VoiceCoderApi {
   const defaultStt = (): SttBackend => {
     const apiKey = required("SONIOX_API_KEY");
     const c = config();
-    const source = new SidecarAudioSource({
-      python: c.pythonPath,
-      script: context.asAbsolutePath("python/mic_sidecar.py"),
-      // replayWav: the sidecar plays a file instead of the mic (for trying the pipeline without speaking)
-      args: c.replayWav ? ["--wav", c.replayWav] : c.micDevice === null ? [] : ["--device", String(c.micDevice)],
-    });
+    // replayWav: a file instead of the mic, for trying the pipeline without speaking
+    const source = c.replayWav ? new WavFileSource(c.replayWav, 3) : new MicrophoneSource({ deviceIndex: c.micDevice ?? -1 });
     return new SonioxBackend(source, { apiKey, maxEndpointDelayMs: c.maxEndpointDelayMs });
   };
   const agent = (): AgentBackend => {
@@ -110,6 +106,7 @@ export function activate(context: vscode.ExtensionContext): VoiceCoderApi {
     vscode.commands.registerCommand("voiceCoder.toggleListening", () => controller.toggle()),
     vscode.commands.registerCommand("voiceCoder.applyProposal", () => actions.applyProposal()),
     vscode.commands.registerCommand("voiceCoder.discardProposal", () => actions.discardProposal()),
+    vscode.commands.registerCommand("voiceCoder.selectMicrophone", selectMicrophone),
   );
 
   return {
@@ -126,6 +123,26 @@ export function activate(context: vscode.ExtensionContext): VoiceCoderApi {
     setSttFactory: (factory) => (sttFactory = factory),
     setAgentBackend: (backend) => (agentOverride = backend),
   };
+}
+
+/** Pick the input device from the ones the recorder sees; stored in voiceCoder.micDevice. */
+async function selectMicrophone(): Promise<void> {
+  let devices: string[];
+  try {
+    devices = await microphoneDevices();
+  } catch (error) {
+    void vscode.window.showErrorMessage(`Voice Coder: ${(error as Error).message}`);
+    return;
+  }
+  const current = vscode.workspace.getConfiguration("voiceCoder").get<number | null>("micDevice") ?? null;
+  const items = [
+    { label: "システムの既定のマイク", index: null as number | null },
+    ...devices.map((name, index) => ({ label: name, index: index as number | null })),
+  ].map((item) => ({ ...item, description: item.index === current ? "使用中" : undefined }));
+  const picked = await vscode.window.showQuickPick(items, { placeHolder: "音声入力に使うマイク" });
+  if (!picked) return;
+  await vscode.workspace.getConfiguration("voiceCoder").update("micDevice", picked.index, vscode.ConfigurationTarget.Global);
+  void vscode.window.showInformationMessage(`Voice Coder: マイクを「${picked.label}」にしました`);
 }
 
 export function deactivate(): void {}

@@ -3,7 +3,7 @@
 日本語の音声で「FizzBuzz を作って」「10 行目から 20 行目を解説して」「デバッグして」と指示する VS Code 拡張。
 
 ```
-マイク ─▶ Python サイドカー ─stdio JSONL─▶ SttBackend (Soniox) ─partial/final─▶ IntentSpeculator ─▶ AgentBackend (OpenAI / Claude)
+マイク (pvrecorder) ─▶ SttBackend (Soniox) ─partial/final─▶ IntentSpeculator ─▶ AgentBackend (OpenAI / Claude)
                                                        │                                               │
                                                   ステータスバー                         final で確定した結果だけをエディタへ
 ```
@@ -47,40 +47,27 @@ setx OPENAI_API_KEY "..."
 環境変数があればそちらが優先。`.env` の値はこの拡張の中だけで使い、VS Code の環境変数（他の拡張と共有）には入れない。
 テストとスクリプトはリポジトリ直下の `.env`（git 管理外）を自動で読む。
 
-### 2. Python サイドカー（マイク）
+### 2. マイク
 
-マイク入力は `python/mic_sidecar.py` が PyAudio で 16 kHz モノラルを録り、stdout に JSON Lines で流す
-（stt_probe/record_takes.py と同じ録音方法）。拡張が聞き始めるときに自動で起動し、止めるときに `{"cmd":"stop"}` を送る。
+マイクは `@picovoice/pvrecorder-node`（Windows / macOS / Linux 用のビルド済みバイナリ同梱、Apache-2.0）で
+16 kHz モノラルを直接録る。Python やコンパイラは要らない。
 
-```bash
-pip install pyaudio
-```
-```bash
-python python/mic_sidecar.py --list-devices
-```
-
-単体で動作を見るとき（1 行 1 JSON が流れる。`{"cmd":"stop"}` を入力するか標準入力を閉じる（Windows は Ctrl+Z → Enter）と止まる）:
-
-```bash
-python python/mic_sidecar.py --device 1
-```
-
-VS Code の設定:
+- 既定ではシステムの既定のマイクを使う。別のマイクはコマンド「Voice Coder: マイクを選ぶ」で選ぶ（設定 `voiceCoder.micDevice` に入る）。
+- Windows で VB-CABLE などの仮想デバイスを「既定の録音デバイス」にしている場合は、ここで実際のマイクを選ぶ。
+- macOS では初回に VS Code へのマイク許可を求められる。
 
 | 設定 | 既定値 | 説明 |
 |---|---|---|
-| `voiceCoder.pythonPath` | `python` | PyAudio が入った Python（例: `D:\work\stt_probe\.venv\Scripts\python.exe`） |
-| `voiceCoder.micDevice` | `null` | `--list-devices` で出た入力デバイス番号。`null` で既定のデバイス |
+| `voiceCoder.micDevice` | `null` | 入力デバイスの番号（「マイクを選ぶ」で設定）。`null` でシステムの既定 |
+| `voiceCoder.envFile` | 空 | API キーを書いた `.env` のパス |
 | `voiceCoder.agent` | `openai` | コマンドを実行する LLM。`openai` か `claude` |
 | `voiceCoder.model` | 空 | モデル名。空なら `openai` は `gpt-6.1-sol`、`claude` は `claude-opus-5-5` |
+| `voiceCoder.intentReader` | `hybrid` | 発話から意図を読む方法。`hybrid`（キーワードで読めなければ jev）、`regex`、`jev`。比較は `docs/JEV.md` |
 | `voiceCoder.claudeCodePath` | 空 | `claude` のときの Claude Code 実行ファイル。空なら SDK 同梱のもの、なければ PATH 上の `claude` |
-| `voiceCoder.intentReader` | `hybrid` | 発話から generate / explain / debug を読む方法。`hybrid`（キーワードで読めなければ jev）、`regex`（キーワードのみ）、`jev`（すべて jev）。比較は `docs/JEV.md` |
-| `voiceCoder.envFile` | 空 | API キーを書いた `.env` のパス |
-| `voiceCoder.replayWav` | 空 | 動作確認用: マイクの代わりにこの WAV を流す（例: `D:\work\voice-coder\test\audio\explain_1.wav`） |
+| `voiceCoder.replayWav` | 空 | 動作確認用: マイクの代わりにこの WAV（16 kHz モノラル）を実時間で流す |
 | `voiceCoder.maxEndpointDelayMs` | `1000` | Soniox の発話終了判定の上限 |
 
-`.vsix` には SDK 同梱の Claude Code 実行ファイル（Windows で 238 MB）を入れていない。
-`claude` を使うときは、Claude Code をインストールして PATH に通すか `voiceCoder.claudeCodePath` を設定する。
+`claude` を使うときは、Claude Code をインストールして PATH に通すか `voiceCoder.claudeCodePath` を設定する（`.vsix` には SDK 同梱の実行ファイルを入れていない）。
 
 ### 3. マイクを試す（VS Code なし）
 
@@ -88,13 +75,13 @@ VS Code の設定:
 Enter で話し始め、話し終えたら Enter で止める（push-to-talk と同じ）。q + Enter で終了。
 
 ```bash
-npm run mic -- --python D:\work\stt_probe\.venv\Scripts\python.exe
+npm run mic
 ```
 
 - 画面に partial、先読みの発火、final、採用された意図、LLM の応答が順に出て、止めたあとに
   「発話終了から 意図発火 / final / 意図確定 / LLM 最初の文字」の時間が出る（発話終了は録音の音量から推定）。
 - 対象コードは内蔵の 23 行のサンプル（14 行目に型エラー）。`--file path` で実ファイルにできる（generate は応答を表示するだけで書き込まない）。
-- `--device N`（`--list-devices` で番号を確認）、`--reader regex|jev|hybrid`、`--agent openai|claude|off`、`--model`、
+- `--device N`（`--list-devices` で番号を確認。拡張の「マイクを選ぶ」と同じ番号）、`--reader regex|jev|hybrid`、`--agent openai|claude|off`、`--model`、
   `--save dir`（録音を WAV で保存）、`--wav file`（マイクの代わりに WAV を流す）。
 
 ### 4. キーバインド
@@ -104,6 +91,7 @@ npm run mic -- --python D:\work\stt_probe\.venv\Scripts\python.exe
 | `Ctrl+Alt+V` / `Cmd+Alt+V` | `Voice Coder: 音声入力の開始/停止`（`voiceCoder.toggleListening`） |
 | （なし） | `Voice Coder: 修正案を適用`（`voiceCoder.applyProposal`。debug / refactor / create の変更案） |
 | （なし） | `Voice Coder: 修正案を破棄`（`voiceCoder.discardProposal`） |
+| （なし） | `Voice Coder: マイクを選ぶ`（`voiceCoder.selectMicrophone`） |
 
 変えるときは「キーボード ショートカット」で `voiceCoder.toggleListening` を探す。ステータスバー左のマイクアイコン「Voice」をクリックしても同じ。
 
@@ -122,7 +110,7 @@ npm test
 npx vsce package
 ```
 
-- `npm test` は vitest（意図パーサ、先読み制御、Soniox プロトコル、サイドカー）のあと、`@vscode/test-electron` で
+- `npm test` は vitest（意図パーサ、先読み制御、Soniox / OpenAI の音声認識プロトコル、マイク）のあと、`@vscode/test-electron` で
   VS Code を起動して `test/vscode/` を走らせる。初回は VS Code を `.vscode-test/` にダウンロードする。
 - `OPENAI_API_KEY` があると VS Code のテストは実際の OpenAI を呼ぶ（1 回の `npm test` で 7 リクエスト程度）。
   キーが無いか `VOICE_CODER_MOCK_AGENT=1` のときは `AgentBackend` をモック（`src/agent/MockAgentBackend.ts`）に差し替える。
@@ -139,8 +127,7 @@ npx vsce package
 | パス | 内容 |
 |---|---|
 | `src/stt/` | `SttBackend`（start / onPartial / onFinal / stop）と Soniox 実装 |
-| `src/audio/` | WAV、実時間再生、Python サイドカーからの音声 |
+| `src/audio/` | マイク（pvrecorder）、WAV の実時間再生、リサンプル |
 | `src/intent/` | 意図パーサ（generate / explain / debug、行範囲）、jev による読み取り、先読み制御 |
 | `src/agent/` | `AgentBackend`、OpenAI（Responses API）と Claude Agent SDK の実装、モック、プロンプト |
 | `src/extension/` | VS Code 拡張（ステータスバー、push-to-talk、各アクション） |
-| `python/mic_sidecar.py` | マイクのサイドカー |

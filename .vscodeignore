@@ -5,7 +5,14 @@
 !README.md
 !LICENSE
 !dist/extension.cjs
-!python/mic_sidecar.py
 !node_modules/@anthropic-ai/claude-agent-sdk/package.json
 !node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs
 !node_modules/@anthropic-ai/claude-agent-sdk/LICENSE.md
+# The microphone recorder: its JS and the Windows / macOS / Linux binaries (not the Raspberry Pi ones)
+!node_modules/@picovoice/pvrecorder-node/package.json
+!node_modules/@picovoice/pvrecorder-node/README.md
+!node_modules/@picovoice/pvrecorder-node/LICENSE
+!node_modules/@picovoice/pvrecorder-node/dist/*.js
+!node_modules/@picovoice/pvrecorder-node/lib/windows/**
+!node_modules/@picovoice/pvrecorder-node/lib/mac/**
+!node_modules/@picovoice/pvrecorder-node/lib/linux/**

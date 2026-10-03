@@ -73,7 +73,7 @@ export function nextReport(api: VoiceCoderApi, timeoutMs = 50_000): Promise<Acti
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       listener.dispose();
-      reject(new Error("no action report"));
+      reject(new Error(`no action report (status: ${api.statusBarItem.text}, listening: ${api.listening}, idle: ${api.idle})`));
     }, timeoutMs);
     const listener = api.onActionDone((report) => {
       clearTimeout(timer);
